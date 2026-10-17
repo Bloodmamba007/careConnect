@@ -9,7 +9,6 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-<<<<<<< Updated upstream
     "test": "tsx --test src/types.test.ts src/alerts.test.ts src/endpoints.test.ts src/escalation.test.ts src/ddiEngine.test.ts src/fusionEngine.test.ts",
     "migrate": "tsx src/db/migrate.ts"
   },
