@@ -15,6 +15,8 @@ export default defineConfig({
       "/vitals": "http://localhost:4000",
       "/alerts": "http://localhost:4000",
       "/medications": "http://localhost:4000",
+      "/api": "http://localhost:4000",
+      "/simulator": "http://localhost:4000",
     },
   },
   test: {

@@ -10,6 +10,19 @@ export interface VitalsPacket {
   diastolic_bp: number;
 }
 
+export interface Medication {
+  drug_name: string;
+  generic_name: string;
+  form: string;
+  strength: string;
+  frequency: string;
+  timing: string;
+  duration_days: number;
+  confidence: number;
+  rxnorm_id: string;
+  safety_notes?: string[];
+}
+
 export interface Alert {
   event_id: string;
   patient_id: string;
@@ -24,4 +37,8 @@ export interface Alert {
     mechanism?: string;
     clinical_effect?: string;
   };
+  acknowledged?: boolean;
+  acknowledged_at?: string;
+  feedback?: "False alarm" | "Real problem";
+  feedback_at?: string;
 }
