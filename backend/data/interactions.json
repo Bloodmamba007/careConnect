@@ -1,0 +1,245 @@
+[
+  {
+    "drug_a": "warfarin",
+    "drug_b": "ibuprofen",
+    "severity": "CRITICAL",
+    "mechanism": "Inhibition of platelet aggregation and gastric mucosal damage by NSAID combined with vitamin K antagonism.",
+    "clinical_effect": "Significantly heightened risk of severe gastrointestinal bleeding and hemorrhagic complications.",
+    "caregiver_warning": "CRITICAL RISK: Taking Warfarin with Ibuprofen severely increases the risk of internal bleeding. Check for black stools, unusual bruising, or dizziness. Contact a physician immediately.",
+    "affected_vitals": ["bleeding risk", "low blood pressure", "high heart rate"]
+  },
+  {
+    "drug_a": "warfarin",
+    "drug_b": "aspirin",
+    "severity": "CRITICAL",
+    "mechanism": "Dual antiplatelet and anticoagulant synergistic inhibition of hemostasis.",
+    "clinical_effect": "Substantially elevated major bleeding risk (gastrointestinal and intracranial).",
+    "caregiver_warning": "CRITICAL WARNING: Concurrent use of Warfarin and Aspirin increases hemorrhage danger. Monitor for unexplained bleeding, nosebleeds, or blood in urine.",
+    "affected_vitals": ["bleeding risk", "low blood pressure"]
+  },
+  {
+    "drug_a": "lisinopril",
+    "drug_b": "spironolactone",
+    "severity": "CRITICAL",
+    "mechanism": "Additive inhibition of aldosterone leads to decreased renal excretion of potassium.",
+    "clinical_effect": "Severe hyperkalemia leading to life-threatening cardiac arrhythmias, muscle paralysis, or cardiac arrest.",
+    "caregiver_warning": "CRITICAL ALERT: Combination can cause dangerously high blood potassium. Watch for irregular heartbeat, extreme weakness, or numbness. Seek urgent emergency care if symptoms appear.",
+    "affected_vitals": ["hyperkalemia", "irregular heart rate", "low blood pressure"]
+  },
+  {
+    "drug_a": "sertraline",
+    "drug_b": "tramadol",
+    "severity": "CRITICAL",
+    "mechanism": "Synergistic enhancement of central serotonin transmission and inhibition of serotonin reuptake.",
+    "clinical_effect": "Serotonin syndrome characterized by neuromuscular hyperactivity, hyperthermia, and seizures.",
+    "caregiver_warning": "CRITICAL WARNING: Risk of Serotonin Syndrome. Watch for shivering, confusion, stiff muscles, high fever, or tremors. Immediate medical attention required.",
+    "affected_vitals": ["high heart rate", "high blood pressure", "high temperature"]
+  },
+  {
+    "drug_a": "fluoxetine",
+    "drug_b": "tramadol",
+    "severity": "CRITICAL",
+    "mechanism": "Inhibition of tramadol metabolism via CYP2D6 along with combined serotonergic action.",
+    "clinical_effect": "Severe serotonin syndrome, central nervous system toxicity, and lowered seizure threshold.",
+    "caregiver_warning": "CRITICAL WARNING: Combining Fluoxetine and Tramadol triggers dangerous serotonin buildup and seizure risk. Seek emergency evaluation if agitation or tremors develop.",
+    "affected_vitals": ["high heart rate", "high blood pressure"]
+  },
+  {
+    "drug_a": "sildenafil",
+    "drug_b": "nitroglycerin",
+    "severity": "CRITICAL",
+    "mechanism": "PDE-5 inhibition amplifies cyclic GMP accumulation induced by nitric oxide donors.",
+    "clinical_effect": "Profound systemic vasodilation resulting in refractory hypotension, syncope, and fatal myocardial infarction.",
+    "caregiver_warning": "EMERGENCY CONTRAINDICATION: Sildenafil and Nitroglycerin together cause sudden, life-threatening drops in blood pressure. DO NOT take together. Call emergency services if taken.",
+    "affected_vitals": ["low blood pressure", "syncope", "high heart rate"]
+  },
+  {
+    "drug_a": "tadalafil",
+    "drug_b": "nitroglycerin",
+    "severity": "CRITICAL",
+    "mechanism": "Potentiation of nitrate-induced hypotensive effect through cyclic GMP elevation.",
+    "clinical_effect": "Severe, prolonged refractory hypotension and acute coronary ischemia.",
+    "caregiver_warning": "EMERGENCY CONTRAINDICATION: Tadalafil combined with Nitroglycerin can cause fatal blood pressure collapse. Absolute contraindication.",
+    "affected_vitals": ["low blood pressure", "syncope"]
+  },
+  {
+    "drug_a": "digoxin",
+    "drug_b": "amiodarone",
+    "severity": "CRITICAL",
+    "mechanism": "Amiodarone inhibits P-glycoprotein renal and non-renal clearance of digoxin.",
+    "clinical_effect": "Rapid doubling of serum digoxin levels causing fatal cardiac arrhythmias, AV block, and neurotoxicity.",
+    "caregiver_warning": "CRITICAL RISK: Amiodarone dramatically spikes Digoxin levels. Watch for nausea, blurred or yellow vision, and abnormally slow pulse. Report to doctor immediately.",
+    "affected_vitals": ["low heart rate", "arrhythmia"]
+  },
+  {
+    "drug_a": "simvastatin",
+    "drug_b": "amlodipine",
+    "severity": "CRITICAL",
+    "mechanism": "Amlodipine inhibits CYP3A4-mediated hepatic metabolism of simvastatin.",
+    "clinical_effect": "Elevated simvastatin plasma exposure increasing the incidence of severe myopathy and rhabdomyolysis.",
+    "caregiver_warning": "CRITICAL WARNING: High risk of severe muscle damage and kidney strain. Watch for unexplained muscle pain, dark cola-colored urine, or weakness.",
+    "affected_vitals": ["muscle toxicity", "acute kidney injury risk"]
+  },
+  {
+    "drug_a": "ciprofloxacin",
+    "drug_b": "theophylline",
+    "severity": "CRITICAL",
+    "mechanism": "Potent inhibition of CYP1A2 by ciprofloxacin reduces theophylline hepatic clearance.",
+    "clinical_effect": "Theophylline toxicity leading to intractable seizures, ventricular arrhythmias, and cardiac arrest.",
+    "caregiver_warning": "CRITICAL RISK: Ciprofloxacin can cause toxic theophylline buildup. Watch for severe nausea, persistent vomiting, tremors, or rapid heart rate.",
+    "affected_vitals": ["high heart rate", "seizure risk", "arrhythmia"]
+  },
+  {
+    "drug_a": "methotrexate",
+    "drug_b": "ibuprofen",
+    "severity": "CRITICAL",
+    "mechanism": "NSAIDs decrease renal tubular secretion and renal blood flow, reducing methotrexate clearance.",
+    "clinical_effect": "Severe methotrexate toxicity resulting in bone marrow suppression, pancytopenia, and acute renal failure.",
+    "caregiver_warning": "CRITICAL ALERT: Ibuprofen stops the body from clearing Methotrexate, causing toxic blood levels. Avoid NSAIDs unless specifically guided by an oncologist.",
+    "affected_vitals": ["bone marrow suppression", "renal failure risk"]
+  },
+  {
+    "drug_a": "atorvastatin",
+    "drug_b": "clarithromycin",
+    "severity": "CRITICAL",
+    "mechanism": "Strong CYP3A4 inhibition by clarithromycin increases systemic atorvastatin concentrations.",
+    "clinical_effect": "Marked risk of statin-induced myopathy, elevated creatine kinase, and rhabdomyolysis.",
+    "caregiver_warning": "CRITICAL WARNING: Combination can cause sudden muscle breakdown and kidney injury. Report any severe muscle soreness or brown urine immediately.",
+    "affected_vitals": ["muscle toxicity", "kidney injury risk"]
+  },
+  {
+    "drug_a": "lithium",
+    "drug_b": "hydrochlorothiazide",
+    "severity": "CRITICAL",
+    "mechanism": "Thiazide-induced sodium depletion enhances proximal tubular reabsorption of lithium.",
+    "clinical_effect": "Severe lithium toxicity characterized by coarse tremor, ataxia, confusion, and seizures.",
+    "caregiver_warning": "CRITICAL WARNING: Water pills cause Lithium accumulation. Watch for slurred speech, clumsy movement, severe hand tremors, or disorientation.",
+    "affected_vitals": ["neurotoxicity", "renal failure risk"]
+  },
+  {
+    "drug_a": "carvedilol",
+    "drug_b": "diltiazem",
+    "severity": "CRITICAL",
+    "mechanism": "Additive negative chronotropic and inotropic effects on the SA and AV nodes and myocardium.",
+    "clinical_effect": "Profound bradycardia, severe heart block, and cardiogenic shock.",
+    "caregiver_warning": "CRITICAL ALERT: Combination severely slows the heart and weakens pump function. Check heart rate daily; seek emergency help if heart rate falls below 45 bpm.",
+    "affected_vitals": ["low heart rate", "low blood pressure", "heart block"]
+  },
+  {
+    "drug_a": "potassium chloride",
+    "drug_b": "spironolactone",
+    "severity": "CRITICAL",
+    "mechanism": "Exogenous potassium supplementation combined with aldosterone antagonism.",
+    "clinical_effect": "Severe hyperkalemia with risk of fatal cardiac dysrhythmias.",
+    "caregiver_warning": "CRITICAL ALERT: Do not take potassium supplements with potassium-sparing diuretics without close laboratory supervision.",
+    "affected_vitals": ["hyperkalemia", "irregular heart rate"]
+  },
+  {
+    "drug_a": "allopurinol",
+    "drug_b": "azathioprine",
+    "severity": "CRITICAL",
+    "mechanism": "Allopurinol inhibits xanthine oxidase, the primary metabolic pathway for 6-mercaptopurine/azathioprine.",
+    "clinical_effect": "Profound, life-threatening myelosuppression with severe leukopenia and sepsis.",
+    "caregiver_warning": "CRITICAL DANGER: Causes severe destruction of white blood cells. Extreme infection danger. Doctor must drastically reduce azathioprine dose if combined.",
+    "affected_vitals": ["myelosuppression", "infection risk"]
+  },
+  {
+    "drug_a": "citalopram",
+    "drug_b": "ondansetron",
+    "severity": "CRITICAL",
+    "mechanism": "Additive prolongation of the cardiac ventricular action potential duration (QTc interval).",
+    "clinical_effect": "Elevated risk of Torsades de Pointes, ventricular fibrillation, and sudden cardiac arrest.",
+    "caregiver_warning": "CRITICAL ALERT: Risk of dangerous electrical disturbance in the heart. Seek immediate emergency care for sudden fainting, severe dizziness, or palpitations.",
+    "affected_vitals": ["arrhythmia", "irregular heart rate", "syncope"]
+  },
+  {
+    "drug_a": "apixaban",
+    "drug_b": "ketoconazole",
+    "severity": "CRITICAL",
+    "mechanism": "Dual CYP3A4 and P-glycoprotein strong inhibition increases apixaban bioavailability.",
+    "clinical_effect": "Significantly increased anticoagulant activity and risk of major bleeding.",
+    "caregiver_warning": "CRITICAL WARNING: Ketoconazole triples blood thinner strength. Watch vigilantly for internal bleeding or prolonged bleeding from minor cuts.",
+    "affected_vitals": ["bleeding risk", "low blood pressure"]
+  },
+  {
+    "drug_a": "amitriptyline",
+    "drug_b": "tramadol",
+    "severity": "CRITICAL",
+    "mechanism": "Mutual inhibition of serotonin reuptake and additive reduction in seizure threshold.",
+    "clinical_effect": "Risk of seizures and serotonin syndrome.",
+    "caregiver_warning": "CRITICAL ALERT: High seizure risk and confusion. Avoid taking together without strict neurological monitoring.",
+    "affected_vitals": ["seizure risk", "high heart rate"]
+  },
+  {
+    "drug_a": "clopidogrel",
+    "drug_b": "omeprazole",
+    "severity": "MODERATE",
+    "mechanism": "Omeprazole competitive inhibition of CYP2C19 diminishes biotransformation of clopidogrel to active metabolite.",
+    "clinical_effect": "Sub-therapeutic platelet inhibition and increased risk of ischemic events or stent thrombosis.",
+    "caregiver_warning": "MODERATE INTERACTION: Omeprazole weakens the anti-clotting action of Clopidogrel. Ask pharmacist about alternative stomach acid medications like pantoprazole.",
+    "affected_vitals": ["thrombotic risk"]
+  },
+  {
+    "drug_a": "lisinopril",
+    "drug_b": "ibuprofen",
+    "severity": "MODERATE",
+    "mechanism": "NSAID prostaglandin inhibition causes renal vasoconstriction and blunts ACE inhibitor vasodilation.",
+    "clinical_effect": "Decreased antihypertensive efficacy and elevated risk of acute kidney injury.",
+    "caregiver_warning": "MODERATE WARNING: Frequent ibuprofen use can raise blood pressure and reduce kidney function when taking Lisinopril. Monitor blood pressure closely.",
+    "affected_vitals": ["high blood pressure", "kidney strain"]
+  },
+  {
+    "drug_a": "amlodipine",
+    "drug_b": "atenolol",
+    "severity": "MODERATE",
+    "mechanism": "Additive negative chronotropic and antihypertensive pharmacodynamics.",
+    "clinical_effect": "Increased risk of hypotension and symptomatic bradycardia.",
+    "caregiver_warning": "MODERATE MONITORING: Both medications lower heart rate and blood pressure. Watch for lightheadedness upon standing.",
+    "affected_vitals": ["low blood pressure", "low heart rate"]
+  },
+  {
+    "drug_a": "metformin",
+    "drug_b": "alcohol",
+    "severity": "MODERATE",
+    "mechanism": "Alcohol potentiates metformin's effect on lactate metabolism in the liver.",
+    "clinical_effect": "Increased susceptibility to acute lactic acidosis and severe hypoglycemia.",
+    "caregiver_warning": "MODERATE WARNING: Avoid excessive alcohol intake while taking Metformin due to lactic acidosis risk.",
+    "affected_vitals": ["lactic acidosis risk", "hypoglycemia"]
+  },
+  {
+    "drug_a": "paracetamol",
+    "drug_b": "warfarin",
+    "severity": "MODERATE",
+    "mechanism": "Toxic paracetamol metabolite NAPQI may inhibit vitamin K epoxide reductase with prolonged high daily doses.",
+    "clinical_effect": "Elevation of International Normalized Ratio (INR) and mild bleeding predisposition.",
+    "caregiver_warning": "MODERATE NOTICE: Regular daily paracetamol doses over 2g may increase bleeding with Warfarin. Occasional single doses are generally acceptable.",
+    "affected_vitals": ["bleeding risk"]
+  },
+  {
+    "drug_a": "levothyroxine",
+    "drug_b": "calcium carbonate",
+    "severity": "MINOR",
+    "mechanism": "Adsorption and insoluble chelation of levothyroxine in the acidic gastrointestinal tract.",
+    "clinical_effect": "Decreased bioavailability of thyroid hormone leading to elevated TSH.",
+    "caregiver_warning": "MINOR TIMING TIP: Calcium prevents thyroid medicine absorption. Separate calcium supplements and Levothyroxine by at least 4 hours.",
+    "affected_vitals": ["thyroid hormone fluctuation"]
+  },
+  {
+    "drug_a": "levothyroxine",
+    "drug_b": "ferrous sulfate",
+    "severity": "MINOR",
+    "mechanism": "Formation of an insoluble ferric-thyronine chelate in the stomach.",
+    "clinical_effect": "Reduced absorption of levothyroxine.",
+    "caregiver_warning": "MINOR TIMING TIP: Take iron pills at least 4 hours after taking your morning thyroid pill.",
+    "affected_vitals": ["thyroid hormone fluctuation"]
+  },
+  {
+    "drug_a": "ciprofloxacin",
+    "drug_b": "aluminum hydroxide",
+    "severity": "MINOR",
+    "mechanism": "Polyvalent cation chelation impairs quinolone GI absorption.",
+    "clinical_effect": "Significantly reduced antibiotic bioavailability and clinical failure.",
+    "caregiver_warning": "MINOR TIMING TIP: Antacids block antibiotic absorption. Take antibiotic 2 hours before or 6 hours after antacids.",
+    "affected_vitals": ["antibiotic efficacy"]
+  }
+]

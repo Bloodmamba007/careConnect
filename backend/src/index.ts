@@ -10,6 +10,7 @@ import express from "express";
 import { Server } from "socket.io";
 import { evaluateVitals, isVitalsPacket } from "./alerts.js";
 import { handleAlertEscalation, acknowledgeAlert } from "./escalation.js";
+import { analyzeDrugInteractions } from "./ddiEngine.js";
 import { runMigrations, getAuditTrail } from "./db/index.js";
 import type { Alert, Medication, VitalsPacket } from "./types.js";
 
@@ -183,6 +184,50 @@ app.get(["/medications/:patient_id", "/api/medications/:patient_id"], (req, res)
   res.json(list);
 });
 
+// Handles medication updates and triggers DDI analysis
+function updatePatientMedications(patientId: string, list: Medication[]) {
+  medications.set(patientId, list);
+  io.emit("medications", { patient_id: patientId, medications: list });
+
+  const ddiResult = analyzeDrugInteractions(patientId, list);
+
+  // If a CRITICAL drug interaction is detected, emit COMPOUND alert and trigger escalation
+  if (ddiResult.critical_alert) {
+    alerts.push(ddiResult.critical_alert);
+    io.emit("alert", ddiResult.critical_alert);
+
+    handleAlertEscalation(ddiResult.critical_alert, {
+      vitals: latestVitals.get(patientId),
+      medications: list,
+    }).catch((err) =>
+      console.error("[DDI Escalation] Error escalating compound alert:", err),
+    );
+  }
+
+  return ddiResult;
+}
+
+// RESTful DDI endpoints
+app.post("/api/patients/:id/medications", (req, res) => {
+  const body = req.body;
+  const list = Array.isArray(body) ? body : body.medications;
+  if (!Array.isArray(list)) {
+    res.status(400).json({ error: "Body must be Medication[] or { medications: Medication[] }" });
+    return;
+  }
+  const patientId = String(req.params.id);
+  const result = updatePatientMedications(patientId, list as Medication[]);
+  res.status(201).json(result);
+});
+
+app.get("/api/patients/:id/interactions", (req, res) => {
+  const patientId = String(req.params.id);
+  const list = medications.get(patientId) || [];
+  const result = analyzeDrugInteractions(patientId, list);
+  res.json(result);
+});
+
+// Legacy medication POST route (also triggers DDI)
 app.post(["/medications/:patient_id", "/api/medications/:patient_id"], (req, res) => {
   const list = req.body;
   if (!Array.isArray(list)) {
@@ -190,9 +235,8 @@ app.post(["/medications/:patient_id", "/api/medications/:patient_id"], (req, res
     return;
   }
   const patientId = String(req.params.patient_id);
-  medications.set(patientId, list as Medication[]);
-  io.emit("medications", { patient_id: patientId, medications: list });
-  res.status(201).json({ ok: true });
+  const ddiResult = updatePatientMedications(patientId, list as Medication[]);
+  res.status(201).json({ ok: true, ddi: ddiResult });
 });
 
 // Acknowledge alert (stops escalation timer)

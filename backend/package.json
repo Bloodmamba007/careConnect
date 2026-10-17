@@ -9,7 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "test": "tsx --test src/types.test.ts src/alerts.test.ts src/endpoints.test.ts src/escalation.test.ts",
+    "test": "tsx --test src/types.test.ts src/alerts.test.ts src/endpoints.test.ts src/escalation.test.ts src/ddiEngine.test.ts",
     "migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {
