@@ -9,14 +9,18 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "test": "tsx --test --test-concurrency=1 src/types.test.ts src/alerts.test.ts src/endpoints.test.ts src/escalation.test.ts src/ddiEngine.test.ts src/fusionEngine.test.ts src/integration.test.ts",
-    "migrate": "tsx src/db/migrate.ts"
+    "test": "tsx --test --test-concurrency=1 src/types.test.ts src/alerts.test.ts src/endpoints.test.ts src/escalation.test.ts src/ddiEngine.test.ts src/fusionEngine.test.ts src/hardening.test.ts src/integration.test.ts",
+    "migrate": "tsx src/db/migrate.ts",
+    "seed": "tsx src/db/seed.ts"
   },
   "dependencies": {
+    "@influxdata/influxdb-client": "^1.35.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "firebase-admin": "^14.5.0",
+    "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.1",
     "socket.io": "^4.8.1",
     "twilio": "^6.2.0",

@@ -3,8 +3,8 @@
     "drug_a": "lisinopril",
     "drug_b": "metoprolol",
     "severity": "CRITICAL",
-    "mechanism": "Additive antihypertensive and negative chronotropic synergy blunts compensatory reflex tachycardia.",
-    "clinical_effect": "Profound hypotension and severe symptomatic bradycardia.",
+    "mechanism": "Concurrent ACE inhibitor vasodilation and beta-blocker negative chronotropy exacerbating hypotensive shock and bradyarrhythmia.",
+    "clinical_effect": "Profound hypotension, severe bradycardia, acute dizziness or syncope.",
     "caregiver_warning": "CRITICAL ALERT: Combination of Lisinopril and Metoprolol can cause severe blood pressure drops and bradycardia. Monitor blood pressure and heart rate closely.",
     "affected_vitals": ["systolic_bp", "diastolic_bp", "heart_rate", "low blood pressure", "low heart rate"]
   },

@@ -178,8 +178,8 @@ export class FusionEngine {
 
     // Check for matching critical interactions whose affected_vitals intersect with deterioration contributing_signals
     const matchingInteractions = hasBreach
-      ? criticalInteractions.filter((interaction) =>
-          interaction.affected_vitals.some((signal) =>
+      ? criticalInteractions.filter((interaction: ActiveInteraction) =>
+          interaction.affected_vitals.some((signal: string) =>
             deterioration.contributing_signals.includes(signal),
           ),
         )
