@@ -1,5 +1,4 @@
-from typing import Optional
-
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
@@ -16,7 +15,7 @@ class Medication(BaseModel):
 
 
 class Interaction(BaseModel):
-    drugs: Optional[list[str]] = None
+    drugs: Optional[List[str]] = None
     mechanism: Optional[str] = None
     clinical_effect: Optional[str] = None
 
@@ -28,11 +27,49 @@ class Alert(BaseModel):
     severity: str = Field(pattern="^(GREEN|YELLOW|RED)$")
     type: str = Field(pattern="^(VITALS|COMPOUND)$")
     message: str
-    instructions: list[str]
-    contributing_signals: list[str]
+    instructions: List[str]
+    contributing_signals: List[str]
     interaction: Optional[Interaction] = None
 
 
 class ParseRequest(BaseModel):
     text: str
     patient_id: str
+
+
+class PrescriptionParseResponse(BaseModel):
+    prescription_id: str
+    patient_id: Optional[str] = None
+    status: str
+    overall_confidence: float
+    ocr_confidence: float
+    llm_confidence: float
+    match_confidence: float
+    medications: List[Medication]
+    cropped_image_base64: str
+    gate_reasons: List[str] = []
+
+
+class ReviewQueueItem(BaseModel):
+    id: str
+    patient_id: Optional[str] = None
+    status: str
+    overall_confidence: float
+    created_at: str
+    cropped_image: str
+    parsed_draft: List[Medication]
+
+
+class ApproveRequest(BaseModel):
+    approved_by: Optional[str] = "Pharmacist"
+    notes: Optional[str] = None
+    edited_draft: Optional[List[Medication]] = None
+
+
+class ApproveResponse(BaseModel):
+    id: str
+    status: str
+    approved_at: str
+    approved_by: Optional[str] = None
+    cropped_image: str
+    parsed_draft: List[Medication]
