@@ -25,7 +25,6 @@ export function getInfluxClient(): InfluxDB {
     client = new InfluxDB({ url, token, timeout: 1000 });
     writeApi = client.getWriteApi(org, bucket, "ms", {
       maxRetries: 0,
-      retryInterval: 50,
       maxRetryTime: 100,
     });
     queryApi = client.getQueryApi(org);
@@ -70,7 +69,7 @@ export async function writeVitalsToInflux(packet: VitalsPacket): Promise<void> {
     await writeApi.flush();
     isInfluxAvailable = true;
   } catch (err: unknown) {
-    if (isInfluxAvailable !== false) {
+    if (isInfluxAvailable === null || isInfluxAvailable === true) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(`[InfluxDB] Could not write to InfluxDB (${msg}). Using in-memory vitals cache.`);
     }

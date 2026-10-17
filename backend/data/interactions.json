@@ -1,5 +1,18 @@
 [
   {
+    "drug_a": "lisinopril",
+    "drug_b": "metoprolol",
+    "severity": "CRITICAL",
+    "mechanism": "Concurrent ACE inhibitor vasodilation and beta-blocker negative chronotropy exacerbating hypotensive shock and bradyarrhythmia.",
+    "clinical_effect": "Profound hypotension, severe bradycardia, acute dizziness or syncope.",
+    "caregiver_warning": "High risk of severe low blood pressure and dangerously slow heart rate when combining Lisinopril and Metoprolol.",
+    "affected_vitals": [
+      "systolic_bp",
+      "diastolic_bp",
+      "heart_rate"
+    ]
+  },
+  {
     "drug_a": "warfarin",
     "drug_b": "ibuprofen",
     "severity": "CRITICAL",

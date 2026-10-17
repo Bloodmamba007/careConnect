@@ -19,7 +19,10 @@ export interface DetectedInteraction {
   rule: DdiRule;
   medication_a: Medication;
   medication_b: Medication;
+  matched_drugs: [string, string];
   severity: InteractionSeverity;
+  mechanism: string;
+  clinical_effect: string;
   caregiver_warning: string;
   affected_vitals: string[];
 }
@@ -34,6 +37,7 @@ export interface UnverifiedMedicationWarning {
 
 export interface DdiAnalysisResult {
   patient_id: string;
+  medications: Medication[];
   total_medications: number;
   pairs_evaluated: number;
   interactions: DetectedInteraction[];
@@ -231,7 +235,13 @@ export function analyzeDrugInteractions(
           rule,
           medication_a: medA,
           medication_b: medB,
+          matched_drugs: [
+            medA.drug_name || medA.generic_name || nameA,
+            medB.drug_name || medB.generic_name || nameB,
+          ],
           severity: rule.severity,
+          mechanism: rule.mechanism,
+          clinical_effect: rule.clinical_effect,
           caregiver_warning: rule.caregiver_warning,
           affected_vitals: rule.affected_vitals,
         });
@@ -301,6 +311,7 @@ export function analyzeDrugInteractions(
 
   return {
     patient_id: patientId,
+    medications: medications,
     total_medications: medications.length,
     pairs_evaluated: pairs.length,
     interactions: detectedInteractions,
@@ -312,3 +323,25 @@ export function analyzeDrugInteractions(
     disclaimer: DISCLAIMER,
   };
 }
+
+export type ActiveInteraction = DetectedInteraction;
+export type DDIEngineOutput = DdiAnalysisResult;
+
+export class DDIEngine {
+  private lastOutputs = new Map<string, DDIEngineOutput>();
+
+  public evaluateMedications(patientId: string, medications: Medication[]): DDIEngineOutput {
+    const res = analyzeDrugInteractions(patientId, medications);
+    this.lastOutputs.set(patientId, res);
+    return res;
+  }
+
+  public getLatestOutput(patientId: string): DDIEngineOutput | undefined {
+    return this.lastOutputs.get(patientId);
+  }
+
+  public resetPatient(patientId: string): void {
+    this.lastOutputs.delete(patientId);
+  }
+}
+
