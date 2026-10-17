@@ -227,11 +227,51 @@ Clinical or compound-risk event published by the backend to the frontend (and op
         },
         "clinical_effect": {
           "type": "string"
+        },
+        "affected_vitals": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "severity": {
+          "type": "string"
+        }
+      }
+    },
+    "explanation": {
+      "type": "object",
+      "description": "Evidence payload for 'Why this alert?' panel.",
+      "properties": {
+        "signals": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "duration": {
+          "type": "string"
+        },
+        "duration_seconds": {
+          "type": "number"
+        },
+        "thresholds": {
+          "type": "object"
+        },
+        "matched_rule": {
+          "type": "string"
+        },
+        "clinical_rationale": {
+          "type": "string"
+        },
+        "medications": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "recommendation": {
+          "type": "string"
         }
       }
     }
   }
 }
+
 ```
 
 Example (VITALS):

@@ -1,383 +1,682 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
-import { io, Socket } from "socket.io-client";
-import { Activity, Wifi, WifiOff, Terminal, User, Clock, AlertTriangle } from "lucide-react";
-import type { Alert, Medication, VitalsPacket } from "./types";
-import { VitalsCards } from "./components/VitalsCards";
-import { VitalsChart } from "./components/VitalsChart";
-import { StatusBanner } from "./components/StatusBanner";
-import { MedicationCard } from "./components/MedicationCard";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { io } from "socket.io-client";
+import { AlertsFeed } from "./components/AlertsFeed";
+import { DemoController } from "./components/DemoController";
 import { EmergencyModal } from "./components/EmergencyModal";
-import { AlertHistory } from "./components/AlertHistory";
-import { DemoPanel } from "./components/DemoPanel";
-
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:4000";
+import { ActivityIcon, AlertTriangleIcon, CheckCircleIcon, PillIcon, ShieldAlertIcon, XIcon } from "./components/Icons";
+import { MedicationsView } from "./components/MedicationsView";
+import { Navbar } from "./components/Navbar";
+import { PatientHeader } from "./components/PatientHeader";
+import { TelemetryChart } from "./components/TelemetryChart";
+import { VitalCard } from "./components/VitalCard";
+import type { Alert, AlertSeverity, ChartPoint, DemoScenario, Medication, Patient, VitalsPacket } from "./types";
+import {
+  INITIAL_ALERTS,
+  INITIAL_MEDICATIONS,
+  PATIENTS,
+  createInitialPacket,
+  generateInitialHistory,
+} from "./utils/mockData";
 
 export default function App() {
+  const [activePatient, setActivePatient] = useState<Patient>(PATIENTS[0]);
   const [connected, setConnected] = useState(false);
-  const [isReconnecting, setIsReconnecting] = useState(false);
-  const [currentVitals, setCurrentVitals] = useState<VitalsPacket | null>(null);
-  const [vitalsHistory, setVitalsHistory] = useState<VitalsPacket[]>([]);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [medications, setMedications] = useState<Medication[]>([]);
-  
-  // Emergency Modal state
-  const [criticalAlert, setCriticalAlert] = useState<Alert | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [vitals, setVitals] = useState<VitalsPacket | null>(() => createInitialPacket(PATIENTS[0].id));
+  const [vitalsHistory, setVitalsHistory] = useState<ChartPoint[]>(() => generateInitialHistory(PATIENTS[0].id));
+  const [alerts, setAlerts] = useState<Alert[]>(INITIAL_ALERTS);
+  const [medications, setMedications] = useState<Medication[]>(INITIAL_MEDICATIONS);
 
-  // Hidden Demo Panel state
-  const [showDemoPanel, setShowDemoPanel] = useState(false);
+  // Navigation & Control States
+  const [activeTab, setActiveTab] = useState<"telemetry" | "alerts" | "medications">("telemetry");
+  const [demoStudioOpen, setDemoStudioOpen] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [isStreamingPaused, setIsStreamingPaused] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [selectedVitalMetric, setSelectedVitalMetric] = useState<"hr" | "spo2" | "sys" | "dia" | null>(null);
+  const [criticalAlert, setCriticalAlert] = useState<Alert | null>(null);
+  const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
+
+  // Toast Notification State
+  const [toast, setToast] = useState<{
+    id: string;
+    title: string;
+    message: string;
+    severity?: AlertSeverity | "info";
+  } | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
+  const autoSimIntervalRef = useRef<number | null>(null);
 
-  // Load initial patient state (vitals, alerts, medications)
-  useEffect(() => {
-    async function loadInitialData() {
-      try {
-        const [vitalsRes, alertsRes, medsRes] = await Promise.allSettled([
-          fetch(`${BACKEND_URL}/api/vitals/pt_001`),
-          fetch(`${BACKEND_URL}/api/alerts`),
-          fetch(`${BACKEND_URL}/api/medications/pt_001`),
-        ]);
+  const triggerToast = (
+    title: string,
+    message: string,
+    severity: AlertSeverity | "info" = "info",
+  ) => {
+    const id = String(Date.now());
+    setToast({ id, title, message, severity });
+    setTimeout(() => {
+      setToast((curr) => (curr?.id === id ? null : curr));
+    }, 4500);
+  };
 
-        if (vitalsRes.status === "fulfilled" && vitalsRes.value.ok) {
-          const vData = await vitalsRes.value.json();
-          setCurrentVitals(vData);
-          setVitalsHistory([vData]);
-        }
+  const playAudioChime = useCallback((severity: AlertSeverity) => {
+    if (!audioEnabled) return;
+    try {
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
 
-        if (alertsRes.status === "fulfilled" && alertsRes.value.ok) {
-          const aData = await alertsRes.value.json();
-          setAlerts(aData.reverse());
-        }
-
-        if (medsRes.status === "fulfilled" && medsRes.value.ok) {
-          const mData = await medsRes.value.json();
-          setMedications(mData);
-        }
-      } catch (err) {
-        console.warn("Initial data load partial failure:", err);
+      if (severity === "RED") {
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.35);
+      } else if (severity === "YELLOW") {
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.22);
       }
+    } catch {
+      // AudioContext blocked by browser autoplay policy before user gesture
+    }
+  }, [audioEnabled]);
+
+  // Handle incoming vitals packet
+  const handleVitalsPacket = useCallback((packet: VitalsPacket) => {
+    setVitals(packet);
+
+    if (!isStreamingPaused) {
+      const time = new Date(packet.timestamp || Date.now());
+      const newPoint: ChartPoint = {
+        timestamp: packet.timestamp,
+        timeLabel: time.toLocaleTimeString([], { hour12: false, minute: "2-digit", second: "2-digit" }),
+        heart_rate: packet.heart_rate,
+        spo2: packet.spo2,
+        systolic_bp: packet.systolic_bp,
+        diastolic_bp: packet.diastolic_bp,
+      };
+
+      setVitalsHistory((prev) => [...prev.slice(-35), newPoint]);
+    }
+  }, [isStreamingPaused]);
+
+  // Handle incoming alert
+  const handleAlertPacket = useCallback((alert: Alert) => {
+    setAlerts((prev) => [alert, ...prev.filter((a) => a.event_id !== alert.event_id)].slice(0, 30));
+
+    if (alert.severity === "RED") {
+      setCriticalAlert(alert);
+      setIsEmergencyModalOpen(true);
     }
 
-    loadInitialData();
-  }, []);
+    if (alert.severity === "RED" || alert.severity === "YELLOW") {
+      playAudioChime(alert.severity);
+      triggerToast(
+        alert.type === "COMPOUND" ? "⚡ Compound Drug Risk" : `${alert.severity} Clinical Alert`,
+        alert.message,
+        alert.severity,
+      );
+    }
+  }, [playAudioChime]);
 
-  // Initialize Socket.io connection
+  // Connect socket and fetch initial resources
   useEffect(() => {
-    const socket = io(BACKEND_URL, {
-      transports: ["websocket", "polling"],
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-    });
-
+    const socket = io({ path: "/socket.io", transports: ["websocket", "polling"] });
     socketRef.current = socket;
 
     socket.on("connect", () => {
       setConnected(true);
-      setIsReconnecting(false);
+      triggerToast("Socket Connected", "Realtime clinical telemetry stream active", "info");
     });
 
-    socket.on("disconnect", (reason) => {
+    socket.on("disconnect", () => {
       setConnected(false);
-      setIsReconnecting(true);
-      console.warn("Socket disconnected:", reason);
     });
 
-    socket.on("connect_error", () => {
-      setConnected(false);
-      setIsReconnecting(true);
-    });
-
-    // Receive streaming vitals: maintain buffer of the last 120 vitals points
     socket.on("vitals", (packet: VitalsPacket) => {
-      setCurrentVitals(packet);
-      setVitalsHistory((prev) => [...prev.slice(-119), packet]);
+      handleVitalsPacket(packet);
     });
 
-    // Receive general alert
-    socket.on("alert", (newAlert: Alert) => {
-      setAlerts((prev) => {
-        const exists = prev.some((a) => a.event_id === newAlert.event_id);
-        if (exists) {
-          return prev.map((a) => (a.event_id === newAlert.event_id ? newAlert : a));
+    socket.on("alert", (alert: Alert) => {
+      handleAlertPacket(alert);
+    });
+
+    socket.on("alert:critical", (alert: Alert) => {
+      setCriticalAlert(alert);
+      setIsEmergencyModalOpen(true);
+      handleAlertPacket(alert);
+    });
+
+    socket.on("alert_updated", (updated: Alert) => {
+      setAlerts((prev) => prev.map((a) => (a.event_id === updated.event_id ? updated : a)));
+    });
+
+    socket.on("medications", (payload: { patient_id: string; medications: Medication[] }) => {
+      if (payload.patient_id === activePatient.id && Array.isArray(payload.medications)) {
+        setMedications(payload.medications);
+      }
+    });
+
+    // Fetch alerts from backend
+    void fetch("/alerts")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((rows: Alert[]) => {
+        if (Array.isArray(rows) && rows.length > 0) {
+          setAlerts(rows.slice().reverse().slice(0, 30));
         }
-        return [newAlert, ...prev].slice(0, 50);
-      });
+      })
+      .catch(() => undefined);
 
-      // If critical and not acknowledged, trigger takeover
-      if (newAlert.severity === "RED" && !newAlert.acknowledged) {
-        setCriticalAlert(newAlert);
-        setIsModalOpen(true);
-      }
-    });
-
-    // Receive critical alert specifically
-    socket.on("alert:critical", (newAlert: Alert) => {
-      setAlerts((prev) => {
-        const exists = prev.some((a) => a.event_id === newAlert.event_id);
-        if (exists) {
-          return prev.map((a) => (a.event_id === newAlert.event_id ? newAlert : a));
+    // Fetch medications from backend
+    void fetch(`/medications/${activePatient.id}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((list: Medication[]) => {
+        if (Array.isArray(list) && list.length > 0) {
+          setMedications(list);
         }
-        return [newAlert, ...prev].slice(0, 50);
-      });
-      setCriticalAlert(newAlert);
-      setIsModalOpen(true);
-    });
-
-    // Acknowledged alert event
-    socket.on("alert:acknowledged", ({ event_id }: { event_id: string }) => {
-      setAlerts((prev) =>
-        prev.map((a) => (a.event_id === event_id ? { ...a, acknowledged: true } : a))
-      );
-      if (criticalAlert?.event_id === event_id) {
-        setIsModalOpen(false);
-      }
-    });
-
-    // Feedback updated event
-    socket.on("alert:feedback", ({ event_id, feedback }: { event_id: string; feedback: "False alarm" | "Real problem" }) => {
-      setAlerts((prev) =>
-        prev.map((a) => (a.event_id === event_id ? { ...a, feedback } : a))
-      );
-    });
-
-    // Updated medications
-    socket.on("medications", ({ medications: newMeds }: { medications: Medication[] }) => {
-      if (Array.isArray(newMeds)) {
-        setMedications(newMeds);
-      }
-    });
+      })
+      .catch(() => undefined);
 
     return () => {
-      socket.disconnect();
+      socket.close();
     };
-  }, [criticalAlert]);
+  }, [activePatient.id, handleVitalsPacket, handleAlertPacket]);
 
-  // Keyboard shortcut for Demo Panel: Alt+D or Ctrl+Shift+D or 'd' when not in inputs
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const activeElement = document.activeElement;
-      const isInput =
-        activeElement instanceof HTMLInputElement ||
-        activeElement instanceof HTMLTextAreaElement ||
-        (activeElement as HTMLElement)?.isContentEditable;
+  // Patient Switcher
+  const handleSelectPatient = (patient: Patient) => {
+    setActivePatient(patient);
+    setVitals(createInitialPacket(patient.id));
+    setVitalsHistory(generateInitialHistory(patient.id));
+    triggerToast("Patient Switched", `Switched to ${patient.name} (${patient.room})`, "info");
 
-      if ((e.altKey && e.key.toLowerCase() === "d") || (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "d")) {
-        e.preventDefault();
-        setShowDemoPanel((prev) => !prev);
-      } else if (e.key.toLowerCase() === "d" && !isInput && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        setShowDemoPanel((prev) => !prev);
-      }
+    void fetch(`/medications/${patient.id}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((list: Medication[]) => {
+        if (Array.isArray(list) && list.length > 0) {
+          setMedications(list);
+        } else {
+          setMedications(INITIAL_MEDICATIONS);
+        }
+      })
+      .catch(() => {
+        setMedications(INITIAL_MEDICATIONS);
+      });
+  };
+
+  // Evaluate packet locally as resilient fallback
+  const evaluatePacketFallback = (packet: VitalsPacket): Alert => {
+    const signals: string[] = [];
+    if (packet.heart_rate < 50 || packet.heart_rate > 110) signals.push("heart_rate");
+    if (packet.spo2 < 94) signals.push("spo2");
+    if (packet.systolic_bp < 90 || packet.systolic_bp > 160) signals.push("systolic_bp");
+    if (packet.diastolic_bp < 50 || packet.diastolic_bp > 100) signals.push("diastolic_bp");
+
+    if (packet.systolic_bp < 85 && packet.diastolic_bp < 55) {
+      return {
+        event_id: `evt_sim_${Date.now()}`,
+        patient_id: packet.patient_id,
+        timestamp: packet.timestamp,
+        severity: "RED",
+        type: "COMPOUND",
+        message: "Possible additive hypotensive effect with current medications and low blood pressure.",
+        instructions: [
+          "Do not give the next dose until a clinician reviews.",
+          "Check blood pressure again in 10 minutes.",
+          "Place patient in supine position with legs elevated.",
+        ],
+        contributing_signals: signals,
+        interaction: {
+          drugs: ["amlodipine", "lisinopril"],
+          mechanism: "additive vasodilation",
+          clinical_effect: "hypotension",
+        },
+      };
+    }
+
+    if (signals.includes("spo2") || packet.heart_rate > 130 || packet.systolic_bp < 80) {
+      return {
+        event_id: `evt_sim_${Date.now()}`,
+        patient_id: packet.patient_id,
+        timestamp: packet.timestamp,
+        severity: "RED",
+        type: "VITALS",
+        message: "Critical vital sign deviation detected.",
+        instructions: [
+          "Stay with the patient.",
+          "Recheck vitals immediately.",
+          "Escalate to a clinician.",
+        ],
+        contributing_signals: signals,
+      };
+    }
+
+    if (signals.length > 0) {
+      return {
+        event_id: `evt_sim_${Date.now()}`,
+        patient_id: packet.patient_id,
+        timestamp: packet.timestamp,
+        severity: "YELLOW",
+        type: "VITALS",
+        message: "One or more vital signs are outside the resting range.",
+        instructions: [
+          "Have the patient rest for 5 minutes.",
+          "Recheck heart rate, SpO2, and blood pressure.",
+        ],
+        contributing_signals: signals,
+      };
+    }
+
+    return {
+      event_id: `evt_sim_${Date.now()}`,
+      patient_id: packet.patient_id,
+      timestamp: packet.timestamp,
+      severity: "GREEN",
+      type: "VITALS",
+      message: "Vitals within expected range.",
+      instructions: ["Continue routine monitoring."],
+      contributing_signals: [],
+    };
+  };
+
+  // Inject a complete scenario
+  const handleInjectScenario = (scenario: DemoScenario) => {
+    const packet: VitalsPacket = {
+      patient_id: activePatient.id,
+      timestamp: new Date().toISOString(),
+      ...scenario.vitals,
     };
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  // Acknowledge alert (POST /api/alerts/:id/ack)
-  const handleAcknowledge = useCallback(async (eventId: string) => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/alerts/${eventId}/ack`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (response.ok) {
-        setAlerts((prev) =>
-          prev.map((a) => (a.event_id === eventId ? { ...a, acknowledged: true } : a))
-        );
-        setIsModalOpen(false);
-      }
-    } catch (err) {
-      console.error("Error acknowledging alert:", err);
-    }
-  }, []);
-
-  // Feedback on alert (POST /api/alerts/:id/feedback)
-  const handleFeedback = useCallback(async (eventId: string, feedback: "False alarm" | "Real problem") => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/alerts/${eventId}/feedback`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedback }),
-      });
-      if (response.ok) {
-        setAlerts((prev) =>
-          prev.map((a) => (a.event_id === eventId ? { ...a, feedback } : a))
-        );
-      }
-    } catch (err) {
-      console.error("Error sending alert feedback:", err);
-    }
-  }, []);
-
-  // Trigger simulator scenario
-  const handleTriggerScenario = useCallback(async (scenario: "stable" | "watching" | "crisis" | "compound") => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/simulator/scenario`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ scenario, patient_id: "pt_001" }),
+    // Try posting to backend
+    fetch("/vitals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(packet),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Backend offline");
+      })
+      .catch(() => {
+        // Fallback local simulation
+        handleVitalsPacket(packet);
+        const alert = evaluatePacketFallback(packet);
+        handleAlertPacket(alert);
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.packet) {
-          setCurrentVitals(data.packet);
-          setVitalsHistory((prev) => [...prev.slice(-119), data.packet]);
-        }
-        if (data.alert) {
-          setAlerts((prev) => [data.alert, ...prev.filter((a) => a.event_id !== data.alert.event_id)].slice(0, 50));
-          if (data.alert.severity === "RED") {
-            setCriticalAlert(data.alert);
-            setIsModalOpen(true);
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Failed to trigger scenario:", err);
-    }
-  }, []);
+    triggerToast(
+      `Injected: ${scenario.title}`,
+      scenario.clinicalNote,
+      scenario.severity,
+    );
+  };
 
-  // Toggle Socket simulation for testing "Reconnecting..." state
-  const handleToggleSocketSimulation = useCallback(() => {
-    if (!socketRef.current) return;
-    if (connected) {
-      socketRef.current.disconnect();
-      setConnected(false);
-      setIsReconnecting(true);
+  // Inject custom vitals from sliders
+  const handleInjectCustomVitals = (v: Omit<VitalsPacket, "patient_id" | "timestamp">) => {
+    const packet: VitalsPacket = {
+      patient_id: activePatient.id,
+      timestamp: new Date().toISOString(),
+      ...v,
+    };
+
+    fetch("/vitals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(packet),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Backend offline");
+      })
+      .catch(() => {
+        handleVitalsPacket(packet);
+        const alert = evaluatePacketFallback(packet);
+        handleAlertPacket(alert);
+      });
+
+    triggerToast("Custom Packet Injected", `HR: ${v.heart_rate} · SpO2: ${v.spo2}% · BP: ${v.systolic_bp}/${v.diastolic_bp}`, "info");
+  };
+
+  // Auto-Simulation streaming loop
+  const handleToggleSimulating = () => {
+    if (isSimulating) {
+      if (autoSimIntervalRef.current) clearInterval(autoSimIntervalRef.current);
+      autoSimIntervalRef.current = null;
+      setIsSimulating(false);
+      triggerToast("Simulation Stopped", "Auto telemetry stream paused", "info");
     } else {
-      socketRef.current.connect();
-    }
-  }, [connected]);
+      setIsSimulating(true);
+      triggerToast("Simulation Active", "Streaming physiological vitals every 2.5s", "info");
 
-  const latestAlert = alerts[0] || null;
+      autoSimIntervalRef.current = window.setInterval(() => {
+        const jitter = Math.sin(Date.now() / 4000) * 4;
+        const packet: VitalsPacket = {
+          patient_id: activePatient.id,
+          timestamp: new Date().toISOString(),
+          heart_rate: Math.round((activePatient.baseline.heartRate + jitter) * 10) / 10,
+          spo2: Math.min(100, Math.round((activePatient.baseline.spo2 - Math.abs(jitter * 0.15)) * 10) / 10),
+          systolic_bp: Math.round((activePatient.baseline.systolicBp + jitter * 1.6) * 10) / 10,
+          diastolic_bp: Math.round((activePatient.baseline.diastolicBp + jitter * 0.8) * 10) / 10,
+        };
+
+        fetch("/vitals", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(packet),
+        }).catch(() => {
+          handleVitalsPacket(packet);
+        });
+      }, 2500);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (autoSimIntervalRef.current) clearInterval(autoSimIntervalRef.current);
+    };
+  }, []);
+
+  // Alert Actions
+  const handleAcknowledgeAlert = async (eventId: string): Promise<void> => {
+    try {
+      await fetch(`/alerts/${eventId}/acknowledge`, { method: "POST" });
+      await fetch(`/api/alerts/${eventId}/ack`, { method: "POST" }).catch(() => undefined);
+    } catch {
+      // Offline fallback
+    }
+    setAlerts((prev) =>
+      prev.map((a) => (a.event_id === eventId ? { ...a, acknowledged: true } : a)),
+    );
+    triggerToast("Alert Acknowledged", "Clinical record updated with caregiver review timestamp", "info");
+  };
+
+  const handleAlertFeedback = (eventId: string, feedback: "false_alarm" | "real_problem") => {
+    fetch(`/alerts/${eventId}/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feedback }),
+    }).catch(() => undefined);
+
+    setAlerts((prev) =>
+      prev.map((a) => (a.event_id === eventId ? { ...a, feedback } : a)),
+    );
+    triggerToast("Triage Feedback Logged", `Marked event as ${feedback === "real_problem" ? "Real Incident" : "False Alarm"}`, "info");
+  };
+
+  const handleEscalateAlert = (alert: Alert) => {
+    setCriticalAlert(alert);
+    setIsEmergencyModalOpen(true);
+    triggerToast(
+      "Emergency Protocol Activated",
+      `Emergency takeover activated for ${alert.message}`,
+      "critical",
+    );
+  };
+
+  const handleAddMedication = (med: Medication) => {
+    const updated = [med, ...medications];
+    setMedications(updated);
+
+    fetch(`/medications/${activePatient.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updated),
+    }).catch(() => undefined);
+
+    triggerToast("Medication Prescribed", `Added ${med.drug_name} (${med.strength}) to chart`, "info");
+  };
+
+  // Sparkline history extraction for each vital card
+  const hrHistory = vitalsHistory.map((p) => p.heart_rate);
+  const spo2History = vitalsHistory.map((p) => p.spo2);
+  const sysHistory = vitalsHistory.map((p) => p.systolic_bp);
+  const diaHistory = vitalsHistory.map((p) => p.diastolic_bp);
+
+  // Latest alert severity
+  const latestSeverity: AlertSeverity = alerts[0]?.severity ?? "GREEN";
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-rose-500 selection:text-white">
-      {/* Reconnecting banner if socket drops */}
-      {(!connected || isReconnecting) && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="sticky top-0 z-50 flex items-center justify-between bg-amber-500 px-4 py-2.5 text-slate-950 font-black shadow-lg animate-pulse"
-        >
-          <div className="flex items-center gap-2">
-            <WifiOff className="w-5 h-5 animate-bounce" />
-            <span className="text-sm uppercase tracking-wider">
-              Reconnecting... Live telemetry stream offline. Attempting automatic reconnection.
-            </span>
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500/30 selection:text-cyan-200">
+      {/* Top Navbar */}
+      <Navbar
+        connected={connected}
+        activePatient={activePatient}
+        onSelectPatient={handleSelectPatient}
+        audioEnabled={audioEnabled}
+        onToggleAudio={() => setAudioEnabled(!audioEnabled)}
+        demoStudioOpen={demoStudioOpen}
+        onToggleDemoStudio={() => setDemoStudioOpen(!demoStudioOpen)}
+        isSimulating={isSimulating}
+      />
+
+      {/* Main Container */}
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+        {/* Hackathon Demo Studio Drawer */}
+        <DemoController
+          isOpen={demoStudioOpen}
+          onClose={() => setDemoStudioOpen(false)}
+          onInjectScenario={handleInjectScenario}
+          onInjectCustomVitals={handleInjectCustomVitals}
+          isSimulating={isSimulating}
+          onToggleSimulating={handleToggleSimulating}
+        />
+
+        {/* Patient Profile Card */}
+        <PatientHeader
+          patient={activePatient}
+          vitals={vitals}
+          latestSeverity={latestSeverity}
+          lastUpdatedTime={vitals ? new Date(vitals.timestamp).toLocaleTimeString() : null}
+        />
+
+        {/* Navigation Tabs Bar */}
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex rounded-xl border border-slate-800 bg-slate-900/90 p-1 text-xs">
+            <button
+              type="button"
+              onClick={() => setActiveTab("telemetry")}
+              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-bold transition-all ${
+                activeTab === "telemetry"
+                  ? "bg-cyan-500/20 text-cyan-300 shadow-sm ring-1 ring-cyan-500/40"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <ActivityIcon className="h-3.5 w-3.5" />
+              <span>Live Telemetry & Vitals</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("alerts")}
+              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-bold transition-all ${
+                activeTab === "alerts"
+                  ? "bg-rose-500/20 text-rose-300 shadow-sm ring-1 ring-rose-500/40"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <ShieldAlertIcon className="h-3.5 w-3.5" />
+              <span>Clinical Alerts & Triage</span>
+              {alerts.filter((a) => !a.acknowledged && a.severity !== "GREEN").length > 0 && (
+                <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-bold text-white">
+                  {alerts.filter((a) => !a.acknowledged && a.severity !== "GREEN").length}
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("medications")}
+              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-bold transition-all ${
+                activeTab === "medications"
+                  ? "bg-emerald-500/20 text-emerald-300 shadow-sm ring-1 ring-emerald-500/40"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <PillIcon className="h-3.5 w-3.5" />
+              <span>Medications & AI Ingestion</span>
+              <span className="rounded bg-slate-800 px-1.5 py-0.2 text-[10px] text-slate-300">
+                {medications.length}
+              </span>
+            </button>
           </div>
-          <button
-            onClick={handleToggleSocketSimulation}
-            className="rounded bg-slate-950 px-2.5 py-1 text-xs text-amber-400 font-bold hover:bg-slate-900 transition-colors"
+
+          <div className="flex items-center gap-2">
+            {!demoStudioOpen && (
+              <button
+                type="button"
+                onClick={() => setDemoStudioOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 transition-colors hover:bg-cyan-500/20"
+              >
+                <span>⚡ Quick Scenarios</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        <div className="mt-6">
+          {activeTab === "telemetry" && (
+            <div className="space-y-6">
+              {/* 4 Live Vitals Cards Matrix */}
+              <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <VitalCard
+                  id="hr"
+                  label="Heart Rate"
+                  value={vitals?.heart_rate}
+                  unit="bpm"
+                  normalMin={60}
+                  normalMax={100}
+                  history={hrHistory}
+                  selected={selectedVitalMetric === "hr"}
+                  onClick={() =>
+                    setSelectedVitalMetric(selectedVitalMetric === "hr" ? null : "hr")
+                  }
+                />
+                <VitalCard
+                  id="spo2"
+                  label="Oxygen Saturation"
+                  value={vitals?.spo2}
+                  unit="%"
+                  normalMin={95}
+                  normalMax={100}
+                  history={spo2History}
+                  selected={selectedVitalMetric === "spo2"}
+                  onClick={() =>
+                    setSelectedVitalMetric(selectedVitalMetric === "spo2" ? null : "spo2")
+                  }
+                />
+                <VitalCard
+                  id="sys"
+                  label="Systolic BP"
+                  value={vitals?.systolic_bp}
+                  unit="mmHg"
+                  normalMin={90}
+                  normalMax={130}
+                  history={sysHistory}
+                  selected={selectedVitalMetric === "sys"}
+                  onClick={() =>
+                    setSelectedVitalMetric(selectedVitalMetric === "sys" ? null : "sys")
+                  }
+                />
+                <VitalCard
+                  id="dia"
+                  label="Diastolic BP"
+                  value={vitals?.diastolic_bp}
+                  unit="mmHg"
+                  normalMin={60}
+                  normalMax={85}
+                  history={diaHistory}
+                  selected={selectedVitalMetric === "dia"}
+                  onClick={() =>
+                    setSelectedVitalMetric(selectedVitalMetric === "dia" ? null : "dia")
+                  }
+                />
+              </section>
+
+              {/* Real-Time Waveform & Trend Telemetry Chart */}
+              <TelemetryChart
+                data={vitalsHistory}
+                isStreamingPaused={isStreamingPaused}
+                onToggleStreaming={() => setIsStreamingPaused(!isStreamingPaused)}
+                onClearData={() => setVitalsHistory([])}
+              />
+
+              {/* Quick Alerts Snapshot */}
+              <AlertsFeed
+                alerts={alerts.slice(0, 5)}
+                onAcknowledgeAlert={handleAcknowledgeAlert}
+                onAlertFeedback={handleAlertFeedback}
+                onEscalateAlert={handleEscalateAlert}
+              />
+            </div>
+          )}
+
+          {activeTab === "alerts" && (
+            <AlertsFeed
+              alerts={alerts}
+              onAcknowledgeAlert={handleAcknowledgeAlert}
+              onAlertFeedback={handleAlertFeedback}
+              onEscalateAlert={handleEscalateAlert}
+            />
+          )}
+
+          {activeTab === "medications" && (
+            <MedicationsView
+              patient={activePatient}
+              medications={medications}
+              onAddMedication={handleAddMedication}
+            />
+          )}
+        </div>
+      </main>
+
+      {/* Floating Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 flex max-w-md items-start gap-3 rounded-2xl border border-slate-700/80 bg-slate-900/95 p-4 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-5">
+          <div
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ring-1 ${
+              toast.severity === "RED" || toast.severity === "critical"
+                ? "bg-rose-500/20 text-rose-400 ring-rose-500/40"
+                : toast.severity === "YELLOW"
+                  ? "bg-amber-500/20 text-amber-400 ring-amber-500/40"
+                  : "bg-cyan-500/20 text-cyan-400 ring-cyan-500/40"
+            }`}
           >
-            Reconnect Now
+            {toast.severity === "RED" || toast.severity === "critical" ? (
+              <ShieldAlertIcon className="h-4 w-4" />
+            ) : toast.severity === "YELLOW" ? (
+              <AlertTriangleIcon className="h-4 w-4" />
+            ) : (
+              <CheckCircleIcon className="h-4 w-4" />
+            )}
+          </div>
+
+          <div className="flex-1">
+            <div className="text-xs font-bold text-white tracking-tight">{toast.title}</div>
+            <p className="mt-0.5 text-xs text-slate-300 leading-snug">{toast.message}</p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="text-slate-400 hover:text-white"
+          >
+            <XIcon className="h-4 w-4" />
           </button>
         </div>
       )}
 
-      {/* Main Top Navigation Header */}
-      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-30">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
-              <Activity className="w-7 h-7" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black tracking-widest uppercase text-cyan-400">CareConnect</span>
-                <span className="text-xs text-slate-400 font-medium bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700">
-                  Caregiver Dashboard
-                </span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                Patient Monitoring Station
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Patient Badge */}
-            <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs text-slate-300">
-              <User className="w-4 h-4 text-slate-400" />
-              <span>Patient: <strong className="text-white">pt_001 (Eleanor Vance)</strong></span>
-            </div>
-
-            {/* Socket Status Pill */}
-            <div
-              className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold border transition-colors ${
-                connected
-                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                  : "bg-amber-500/10 text-amber-300 border-amber-500/40"
-              }`}
-            >
-              {connected ? (
-                <>
-                  <Wifi className="w-4 h-4 text-emerald-400" />
-                  <span>Telemetry Online</span>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-4 h-4 text-amber-400 animate-spin" />
-                  <span>Reconnecting...</span>
-                </>
-              )}
-            </div>
-
-            {/* Demo Button to toggle demo panel */}
-            <button
-              onClick={() => setShowDemoPanel((prev) => !prev)}
-              aria-label="Toggle Demo Scenarios Panel"
-              className="flex items-center gap-1.5 rounded-xl border border-indigo-500/40 bg-indigo-950/40 hover:bg-indigo-900/60 px-3 py-1.5 text-xs font-bold text-indigo-300 transition-colors"
-            >
-              <Terminal className="w-4 h-4" />
-              <span>Demo Panel <kbd className="text-[10px] bg-slate-900 px-1 py-0.5 rounded border border-slate-700">Alt+D</kbd></span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-6 flex-1 w-full">
-        {/* Status Banner */}
-        <StatusBanner
-          latestAlert={latestAlert}
-          onOpenEmergencyModal={latestAlert?.severity === "RED" ? () => setIsModalOpen(true) : undefined}
-        />
-
-        {/* Current Vitals Cards */}
-        <VitalsCards vitals={currentVitals} />
-
-        {/* Live Recharts Line Chart */}
-        <VitalsChart data={vitalsHistory} />
-
-        {/* Active Medications & Safety Notes */}
-        <MedicationCard medications={medications} />
-
-        {/* Past Alert History with Feedback Buttons */}
-        <AlertHistory alerts={alerts} onFeedback={handleFeedback} />
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950/90 py-5 text-center text-xs text-slate-400">
-        <p>CareConnect Realtime Caregiver Station &middot; High Contrast Continuous Telemetry &middot; Press <kbd className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">Alt+D</kbd> to launch scenario simulator</p>
-      </footer>
-
-      {/* Full-Screen Red Emergency Takeover Modal */}
+      {/* Full-Screen Emergency Modal with Compound Risk Badge, Medication List & Why Panel */}
       <EmergencyModal
         alert={criticalAlert}
-        isOpen={isModalOpen}
-        onAcknowledge={handleAcknowledge}
-        onClose={() => setIsModalOpen(false)}
-      />
-
-      {/* Hidden Demo Panel */}
-      <DemoPanel
-        isOpen={showDemoPanel}
-        onClose={() => setShowDemoPanel(false)}
-        onTriggerScenario={handleTriggerScenario}
-        onToggleSocketSimulation={handleToggleSocketSimulation}
-        isSocketConnected={connected}
+        isOpen={isEmergencyModalOpen}
+        onAcknowledge={handleAcknowledgeAlert}
+        onClose={() => setIsEmergencyModalOpen(false)}
+        medications={medications}
       />
     </div>
   );

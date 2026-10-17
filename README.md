@@ -80,3 +80,24 @@ TypeScript types in `backend/src/types.ts` mirror:
 1. **VitalsPacket** — `patient_id`, ISO `timestamp`, `heart_rate`, `spo2`, `systolic_bp`, `diastolic_bp`
 2. **Medication** — `drug_name`, `generic_name`, `form`, `strength`, `frequency`, `timing`, `duration_days`, `confidence`, `rxnorm_id`
 3. **Alert** — `event_id`, `patient_id`, `timestamp`, `severity` (`GREEN` \| `YELLOW` \| `RED`), `type` (`VITALS` \| `COMPOUND`), `message`, `instructions[]`, `contributing_signals[]`, optional `interaction`
+
+---
+
+## Hackathon Presentation Mode & Interactive UI
+
+The CareConnect caregiver UI includes built-in live demonstration controls designed specifically for presentation to judges:
+
+- **1-Click Clinical Scenarios**:
+  - `🟢 Resting Baseline`: Normal resting physiological state (GREEN routine alert).
+  - `🟡 Tachycardia`: Elevated resting heart rate > 110 bpm (YELLOW warning alert with rest instructions).
+  - `🔴 Critical Hypoxia`: Acute peripheral SpO2 drop to < 90% (RED emergency desaturation protocol).
+  - `⚡ Compound Multi-Drug Risk`: Severe dual hypotension crash triggered by concomitant ACE inhibitor + Calcium channel blocker (RED compound alert with interactive drug mechanism details).
+- **Auto Telemetry Simulator**:
+  - Toggle the continuous streaming loop in the UI (`Demo Studio -> Start Auto Loop`) to stream live physiological vitals even without running background terminal processes.
+- **Continuous Recharts Waveforms**:
+  - Multi-signal telemetry stream with threshold lines (Hypoxia at 94% SpO2, Tachycardia at 100 bpm), scrubbable dark tooltips, and time window filters.
+- **Caregiver Protocol Checklist**:
+  - Interactive checkboxes on every clinical alert allow caregivers to check off protocol steps during an incident.
+- **Prescription AI Parser Studio**:
+  - Testbed for unstructured doctor's prescription text with 4 pre-loaded presets, confidence matching, and 1-click addition to the patient's active chart.
+

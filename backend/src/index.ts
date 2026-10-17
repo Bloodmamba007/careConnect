@@ -12,6 +12,7 @@ import { evaluateVitals, isVitalsPacket } from "./alerts.js";
 import { handleAlertEscalation, acknowledgeAlert } from "./escalation.js";
 import { analyzeDrugInteractions } from "./ddiEngine.js";
 import { runMigrations, getAuditTrail } from "./db/index.js";
+import { FusionEngine } from "./fusionEngine.js";
 import type { Alert, Medication, VitalsPacket } from "./types.js";
 
 const PORT = Number(process.env.BACKEND_PORT ?? 4000);
@@ -75,6 +76,9 @@ const defaultMedications: Medication[] = [
 ];
 medications.set("pt_001", defaultMedications);
 
+const fusionEngine = new FusionEngine();
+fusionEngine.updateMedications("pt_001", defaultMedications);
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: "*" },
@@ -134,22 +138,26 @@ app.post(["/vitals", "/api/vitals"], async (req, res) => {
   }
   const packet = req.body;
   latestVitals.set(packet.patient_id, packet);
-  const alert = evaluateVitals(packet);
+  const fusionResult = fusionEngine.processVitals(packet);
+  const alert = fusionResult.alert ?? evaluateVitals(packet);
   alerts.push(alert);
   
   io.emit("vitals", packet);
   io.emit("alert", alert);
-  handleCriticalAlert(alert);
+  if (fusionResult.dashboard_card) {
+    io.emit("dashboard:card", fusionResult.dashboard_card);
+  }
 
-  // Trigger escalation workflow on RED alerts
-  if (alert.severity === "RED") {
+  // Trigger escalation workflow on RED alerts (non-silent)
+  if (!fusionResult.is_silent && alert.severity === "RED") {
+    handleCriticalAlert(alert);
     handleAlertEscalation(alert, {
       vitals: packet,
       medications: medications.get(packet.patient_id),
     }).catch((err) => console.error("[Escalation] Error handling alert:", err));
   }
 
-  res.status(201).json({ ok: true, alert });
+  res.status(201).json({ ok: true, alert, fusion: fusionResult });
 });
 
 app.post(["/alerts/:event_id/acknowledge", "/api/alerts/:event_id/acknowledge"], async (req, res) => {
@@ -235,8 +243,11 @@ app.post(["/medications/:patient_id", "/api/medications/:patient_id"], (req, res
     return;
   }
   const patientId = String(req.params.patient_id);
+  medications.set(patientId, list as Medication[]);
+  const ddiOutput = fusionEngine.updateMedications(patientId, list as Medication[]);
   const ddiResult = updatePatientMedications(patientId, list as Medication[]);
-  res.status(201).json({ ok: true, ddi: ddiResult });
+  io.emit("medications", { patient_id: patientId, medications: list });
+  res.status(201).json({ ok: true, ddi: ddiResult, fusion: ddiOutput });
 });
 
 // Acknowledge alert (stops escalation timer)
@@ -351,25 +362,10 @@ const scenarioHandler = (req: express.Request, res: express.Response) => {
       systolic_bp: 72,
       diastolic_bp: 40,
     };
-    customAlert = {
-      event_id: randomUUID(),
-      patient_id,
-      timestamp: now,
-      severity: "RED",
-      type: "COMPOUND",
-      message: "Profound hypotension and severe bradycardia. Additive beta-blocker and ACE-inhibitor hemodynamic crash.",
-      instructions: [
-        "Stay with the patient.",
-        "Recheck vitals immediately.",
-        "Escalate to a clinician."
-      ],
-      contributing_signals: ["systolic_bp", "diastolic_bp", "heart_rate"],
-      interaction: {
-        drugs: ["Lisinopril 10mg", "Metoprolol 25mg"],
-        mechanism: "Concurrent vasodilation and negative chronotropy exacerbating hypotensive shock",
-        clinical_effect: "Severe hypoperfusion, bradyarrhythmia, acute dizziness/syncope"
-      }
-    };
+    const patientMeds = medications.get(patient_id) ?? defaultMedications;
+    fusionEngine.updateMedications(patient_id, patientMeds);
+    const fusionRes = fusionEngine.processVitals(packet);
+    customAlert = fusionRes.alert;
   } else {
     res.status(400).json({ error: "Unknown scenario. Use 'stable', 'watching', 'crisis', or 'compound'" });
     return;
@@ -391,6 +387,18 @@ app.post("/simulator/scenario", scenarioHandler);
 app.post("/api/simulator/:scenario", scenarioHandler);
 app.post("/simulator/:scenario", scenarioHandler);
 
+// Fusion risk state endpoint for dashboard
+app.get(["/fusion/risk/:patient_id", "/api/fusion/risk/:patient_id"], (req, res) => {
+  const patientId = String(req.params.patient_id);
+  const state = fusionEngine.getRiskState(patientId);
+  const ddi = fusionEngine.getDDIEngine().getLatestOutput(patientId);
+  res.json({
+    ok: true,
+    risk_state: state,
+    ddi,
+  });
+});
+
 io.on("connection", (socket) => {
   socket.emit("hello", { service: "careconnect-backend" });
 });
@@ -403,4 +411,5 @@ server.listen(PORT, async () => {
     console.warn("[PostgreSQL] Could not auto-apply migrations on startup:", err);
   }
 });
-export { app, server, io, alerts, latestVitals, escalationTimers };
+export { app, server, io, alerts, latestVitals, escalationTimers, fusionEngine };
+

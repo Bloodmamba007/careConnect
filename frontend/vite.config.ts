@@ -17,6 +17,7 @@ export default defineConfig({
       "/medications": "http://localhost:4000",
       "/api": "http://localhost:4000",
       "/simulator": "http://localhost:4000",
+      "/parse": "http://localhost:8000",
     },
   },
   test: {
