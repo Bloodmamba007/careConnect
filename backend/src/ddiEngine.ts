@@ -312,3 +312,78 @@ export function analyzeDrugInteractions(
     disclaimer: DISCLAIMER,
   };
 }
+
+export interface ActiveInteraction {
+  matched_drugs: string[];
+  mechanism: string;
+  clinical_effect: string;
+  affected_vitals: string[];
+  severity: InteractionSeverity;
+}
+
+export interface DDIEngineOutput {
+  patient_id: string;
+  medications: Medication[];
+  critical_interactions: ActiveInteraction[];
+  all_interactions: DetectedInteraction[];
+  analysis: DdiAnalysisResult;
+}
+
+export class DDIEngine {
+  private patientOutputs = new Map<string, DDIEngineOutput>();
+  private rules: DdiRule[];
+
+  constructor(customRules?: DdiRule[]) {
+    this.rules = customRules || loadCuratedInteractions();
+  }
+
+  public evaluateMedications(patientId: string, medications: Medication[]): DDIEngineOutput {
+    const analysis = analyzeDrugInteractions(patientId, medications, this.rules);
+
+    const critical_interactions: ActiveInteraction[] = analysis.critical_interactions.map((ci) => {
+      const mappedSignals = new Set<string>(ci.affected_vitals);
+      for (const sig of ci.affected_vitals) {
+        const s = sig.toLowerCase();
+        if (s.includes("pressure") || s.includes("bp")) {
+          mappedSignals.add("systolic_bp");
+          mappedSignals.add("diastolic_bp");
+        }
+        if (s.includes("heart") || s.includes("pulse") || s.includes("brady") || s.includes("tachy") || s.includes("rate")) {
+          mappedSignals.add("heart_rate");
+        }
+        if (s.includes("oxygen") || s.includes("spo2") || s.includes("hypox")) {
+          mappedSignals.add("spo2");
+        }
+      }
+      return {
+        matched_drugs: [
+          ci.medication_a.drug_name || ci.medication_a.generic_name,
+          ci.medication_b.drug_name || ci.medication_b.generic_name,
+        ],
+        mechanism: ci.rule.mechanism,
+        clinical_effect: ci.rule.clinical_effect,
+        affected_vitals: Array.from(mappedSignals),
+        severity: ci.severity,
+      };
+    });
+
+    const output: DDIEngineOutput = {
+      patient_id: patientId,
+      medications,
+      critical_interactions,
+      all_interactions: analysis.interactions,
+      analysis,
+    };
+
+    this.patientOutputs.set(patientId, output);
+    return output;
+  }
+
+  public getLatestOutput(patientId: string): DDIEngineOutput | undefined {
+    return this.patientOutputs.get(patientId);
+  }
+
+  public resetPatient(patientId: string): void {
+    this.patientOutputs.delete(patientId);
+  }
+}

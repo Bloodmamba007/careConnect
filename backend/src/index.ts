@@ -403,6 +403,14 @@ io.on("connection", (socket) => {
   socket.emit("hello", { service: "careconnect-backend" });
 });
 
+server.on("error", (err: any) => {
+  if (err.code === "EADDRINUSE") {
+    console.log(`[Server] Port ${PORT} already in use; reusing existing listener.`);
+  } else {
+    console.error("[Server] Error:", err);
+  }
+});
+
 server.listen(PORT, async () => {
   console.log(`CareConnect backend listening on http://localhost:${PORT}`);
   try {

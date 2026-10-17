@@ -60,6 +60,7 @@ docker compose up -d
 | `make dev` | `docker compose up -d`, then backend (`:4000`), frontend (`:5173`), prescription (`:8000`) |
 | `make sim` | Run the vitals simulator against `BACKEND_URL` |
 | `make test` | Backend, frontend, simulator, and prescription tests |
+| `make validate` | Run Phase 9 validation harness: 1,000h telemetry benchmark, persistence sweep, prescription accuracy |
 
 Without Make:
 

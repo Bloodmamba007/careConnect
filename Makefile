@@ -1,4 +1,4 @@
-.PHONY: dev sim test install db backend frontend prescription
+.PHONY: dev sim test install db backend frontend prescription validate
 
 COMPOSE ?= docker compose
 PY ?= python
@@ -34,3 +34,7 @@ test:
 	cd $(FRONTEND_DIR) && npm test
 	cd $(SIM_DIR) && $(PY) -m pytest
 	cd $(RX_DIR) && $(PY) -m pytest
+
+validate:
+	$(PY) docs/validation/run_all_validation.py
+

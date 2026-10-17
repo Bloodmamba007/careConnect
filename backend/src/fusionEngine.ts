@@ -41,10 +41,16 @@ export class FusionEngine {
   private anomalyEngine: AnomalyEngine;
   private ddiEngine: DDIEngine;
   private patientRiskStates = new Map<string, PatientRiskState>();
+  private requireSustained: boolean;
 
-  constructor(anomalyEngine?: AnomalyEngine, ddiEngine?: DDIEngine) {
+  constructor(
+    anomalyEngine?: AnomalyEngine,
+    ddiEngine?: DDIEngine,
+    options?: { requireSustained?: boolean },
+  ) {
     this.anomalyEngine = anomalyEngine ?? new AnomalyEngine();
     this.ddiEngine = ddiEngine ?? new DDIEngine();
+    this.requireSustained = options?.requireSustained ?? false;
   }
 
   public getAnomalyEngine(): AnomalyEngine {
@@ -154,6 +160,19 @@ export class FusionEngine {
   ): FusionResult {
     const patientId = deterioration.patient_id;
     const hasBreach = deterioration.has_breach;
+    const isActionableBreach = this.requireSustained ? deterioration.is_sustained : hasBreach;
+
+    if (hasBreach && !isActionableBreach) {
+      return {
+        patient_id: patientId,
+        decision_branch: "NORMAL",
+        alert: null,
+        is_silent: true,
+        anomaly: deterioration,
+        ddi: ddiOutput,
+      };
+    }
+
     const criticalInteractions = ddiOutput.critical_interactions;
     const hasCriticalInteractions = criticalInteractions.length > 0;
 

@@ -4,6 +4,15 @@ import http from "node:http";
 import { app, server, io } from "./index.js";
 
 test("API routes: simulator scenarios, ack, feedback", async () => {
+  for (let i = 0; i < 20; i++) {
+    try {
+      const h = await fetch("http://localhost:4000/health");
+      if (h.ok) break;
+    } catch {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  }
+
   // 1. Simulator scenario 'crisis' produces RED alert and vitals
   const crisisRes = await fetch("http://localhost:4000/api/simulator/scenario", {
     method: "POST",
@@ -47,8 +56,4 @@ test("API routes: simulator scenarios, ack, feedback", async () => {
   assert.equal(stableRes.status, 200);
   const stableData = await stableRes.json();
   assert.equal(stableData.alert.severity, "GREEN");
-
-  // Close server after test
-  server.close();
-  io.close();
 });
