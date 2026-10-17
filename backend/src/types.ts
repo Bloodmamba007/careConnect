@@ -19,6 +19,7 @@ export interface Medication {
   duration_days: number;
   confidence: number;
   rxnorm_id: string;
+  safety_notes?: string[];
 }
 
 export type AlertSeverity = "GREEN" | "YELLOW" | "RED";
@@ -41,4 +42,8 @@ export interface Alert {
   instructions: string[];
   contributing_signals: string[];
   interaction?: Interaction;
+  acknowledged?: boolean;
+  acknowledged_at?: string;
+  feedback?: "False alarm" | "Real problem";
+  feedback_at?: string;
 }
