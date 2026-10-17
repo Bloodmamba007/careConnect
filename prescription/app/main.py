@@ -9,6 +9,11 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from .gate import gate_prescription
+from .image_storage import (
+    decrypt_prescription_image,
+    get_retention_mode,
+    handle_image_retention,
+)
 from .layout import crop_rx_body, crop_text_lines, segment_layout
 from .llm_parse import parse_with_llm
 from .normalize import normalize_medications
@@ -118,6 +123,13 @@ async def parse_prescription_image(
     if not contents:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
+    # Retention Policy: "delete" (zero-retention default) or "encrypt" (AES-256-GCM archive)
+    retention_mode_applied, stored_path = handle_image_retention(prescription_id, contents)
+    logger.info(
+        f"Prescription {prescription_id} retention policy applied: mode={retention_mode_applied}"
+        + (f", path={stored_path}" if stored_path else ", raw image purged from storage.")
+    )
+
     nparr = np.frombuffer(contents, np.uint8)
     image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if image is None:
@@ -163,6 +175,7 @@ async def parse_prescription_image(
         "medications": normalized_meds,
         "cropped_image": cropped_b64,
         "gate_reasons": gate_result.reasons,
+        "retention_mode": retention_mode_applied,
         "created_at": created_at,
         "approved_at": None,
         "approved_by": None,
@@ -186,6 +199,7 @@ async def parse_prescription_image(
         medications=normalized_meds,
         cropped_image_base64=cropped_b64,
         gate_reasons=gate_result.reasons,
+        retention_mode=retention_mode_applied,
     )
 
 
@@ -201,6 +215,7 @@ def get_review_queue() -> List[ReviewQueueItem]:
             created_at=item["created_at"],
             cropped_image=item["cropped_image"],
             parsed_draft=item["medications"],
+            retention_mode=item.get("retention_mode", "delete"),
         )
         for item in review_store.values()
         if item["status"] == "needs_review"
