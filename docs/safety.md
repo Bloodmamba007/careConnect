@@ -14,7 +14,7 @@ CareConnect is designed around four fundamental safety pillars:
 1. **Human-in-the-Loop**: High-consequence decisions (such as prescription onboarding and medication reconciliation) always require licensed pharmacist review.
 2. **Deterministic Thresholding for Criticality**: Critical alerts are generated using established physiological thresholds and evidence-based pharmacodynamic interaction databases—never unconstrained generative models.
 3. **Escalation Redundancy**: If a primary caregiver does not acknowledge a critical life-safety alert within 60 seconds, the system automatically escalates to a secondary contact across multiple communication channels (SMS, Voice call, Push).
-4. **Graceful Fallback & Fail-Safe Defaults**: When external services (Twilio, Firebase, PostgreSQL, InfluxDB) are unreachable, the system fails open to redundant in-memory queues and offline notification stubs to ensure uninterrupted patient safety monitoring.
+4. **Graceful Fallback & Fail-Safe Defaults**: When external services (Twilio, Supabase, PostgreSQL, InfluxDB) are unreachable, the system fails open to redundant in-memory queues and offline notification stubs to ensure uninterrupted patient safety monitoring.
 
 ---
 

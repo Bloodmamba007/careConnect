@@ -10,7 +10,7 @@ import {
   sendTwilioVoiceCall,
   TwilioNotificationResult,
 } from "./notifications/twilio.js";
-import { sendFcmPush, FcmPushResult } from "./notifications/fcm.js";
+import { sendSupabasePush, SupabasePushResult } from "./notifications/supabase.js";
 
 export interface CaregiverContact {
   name: string;
@@ -344,11 +344,11 @@ async function executeStep1(
     details: { contactName: primary.name, error: callResult.error },
   });
 
-  // 3. Send Firebase Cloud Messaging push
-  let fcmResult: FcmPushResult;
+  // 3. Send Supabase Realtime push notification
+  let supabaseResult: SupabasePushResult;
   try {
-    fcmResult = await sendFcmPush(
-      { topic: `patient_${patientId}` },
+    supabaseResult = await sendSupabasePush(
+      { patientId },
       {
         title: `RED ALERT: ${context.patientName || `Patient ${patientId}`}`,
         body: alert.message,
@@ -361,17 +361,17 @@ async function executeStep1(
     );
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    fcmResult = { messageId: "", recipient: `topic:patient_${patientId}`, status: "FAILED", error: msg };
+    supabaseResult = { messageId: "", recipient: `channel:patient_${patientId}`, status: "FAILED", error: msg };
   }
   await recordNotification({
     alert_id: alertId,
     patient_id: patientId,
     step: 1,
-    channel: "FCM",
-    recipient: fcmResult.recipient,
-    status: fcmResult.status,
+    channel: "Supabase",
+    recipient: supabaseResult.recipient,
+    status: supabaseResult.status,
     message_body: `${alert.message}`,
-    sid: fcmResult.messageId,
+    sid: supabaseResult.messageId,
     details: { error: fcmResult.error },
   });
 
