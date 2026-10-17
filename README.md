@@ -1,4 +1,4 @@
-# CareConnect
+# CareConnect.
 
 Monorepo for a remote patient-monitoring stack: a vitals **simulator**, a realtime **backend**, a **React** caregiver UI, and a **prescription** parsing API. Shared payload shapes live in [`docs/contracts.md`](docs/contracts.md).
 
