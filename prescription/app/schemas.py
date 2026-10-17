@@ -48,6 +48,7 @@ class PrescriptionParseResponse(BaseModel):
     medications: List[Medication]
     cropped_image_base64: str
     gate_reasons: List[str] = []
+    retention_mode: Optional[str] = "delete"
 
 
 class ReviewQueueItem(BaseModel):
@@ -58,6 +59,7 @@ class ReviewQueueItem(BaseModel):
     created_at: str
     cropped_image: str
     parsed_draft: List[Medication]
+    retention_mode: Optional[str] = "delete"
 
 
 class ApproveRequest(BaseModel):
