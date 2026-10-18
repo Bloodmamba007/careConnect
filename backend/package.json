@@ -11,7 +11,9 @@
     "start": "node dist/index.js",
     "test": "tsx --test --test-concurrency=1 src/types.test.ts src/alerts.test.ts src/endpoints.test.ts src/escalation.test.ts src/ddiEngine.test.ts src/fusionEngine.test.ts src/hardening.test.ts src/integration.test.ts",
     "migrate": "tsx src/db/migrate.ts",
-    "seed": "tsx src/db/seed.ts"
+    "seed": "tsx src/db/seed.ts",
+    "test:twilio": "tsx src/test-twilio.ts",
+    "test:whatsapp": "tsx src/test-whatsapp.ts"
   },
   "dependencies": {
     "@influxdata/influxdb-client": "^1.35.0",

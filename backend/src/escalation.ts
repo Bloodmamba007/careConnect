@@ -8,6 +8,7 @@ import {
 import {
   sendTwilioSms,
   sendTwilioVoiceCall,
+  sendTwilioWhatsApp,
   TwilioNotificationResult,
 } from "./notifications/twilio.js";
 import { sendSupabasePush, SupabasePushResult } from "./notifications/supabase.js";
@@ -372,7 +373,32 @@ async function executeStep1(
     status: supabaseResult.status,
     message_body: `${alert.message}`,
     sid: supabaseResult.messageId,
-    details: { error: fcmResult.error },
+    details: { error: supabaseResult.error },
+  });
+
+  // 4. Send Twilio WhatsApp to primary caregiver
+  let whatsappResult: TwilioNotificationResult;
+  try {
+    whatsappResult = await sendTwilioWhatsApp({
+      to: primary.phone,
+      body: messageBody,
+      contentSid: process.env.TWILIO_CONTENT_SID,
+      contentVariables: { "1": "Critical Alert", "2": context.patientName || `Patient ${patientId}` },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    whatsappResult = { sid: "", channel: "WHATSAPP", to: primary.phone, status: "FAILED", error: msg };
+  }
+  await recordNotification({
+    alert_id: alertId,
+    patient_id: patientId,
+    step: 1,
+    channel: "WHATSAPP",
+    recipient: primary.phone,
+    status: whatsappResult.status,
+    message_body: messageBody,
+    sid: whatsappResult.sid,
+    details: { contactName: primary.name, error: whatsappResult.error },
   });
 
   await recordAuditEvent({
@@ -385,7 +411,8 @@ async function executeStep1(
       primaryPhone: primary.phone,
       smsStatus: smsResult.status,
       callStatus: callResult.status,
-      fcmStatus: fcmResult.status,
+      supabaseStatus: supabaseResult.status,
+      whatsappStatus: whatsappResult.status,
       nextStepDelayMs: config.step2DelayMs,
     },
   });
@@ -467,6 +494,31 @@ async function executeStep2(
     details: { contactName: secondary.name, error: callResult.error },
   });
 
+  // 3. Send Twilio WhatsApp to secondary contact
+  let whatsappResult: TwilioNotificationResult;
+  try {
+    whatsappResult = await sendTwilioWhatsApp({
+      to: secondary.phone,
+      body: messageBody,
+      contentSid: process.env.TWILIO_CONTENT_SID,
+      contentVariables: { "1": "Escalated Alert", "2": context.patientName || `Patient ${patientId}` },
+    });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    whatsappResult = { sid: "", channel: "WHATSAPP", to: secondary.phone, status: "FAILED", error: msg };
+  }
+  await recordNotification({
+    alert_id: alertId,
+    patient_id: patientId,
+    step: 2,
+    channel: "WHATSAPP",
+    recipient: secondary.phone,
+    status: whatsappResult.status,
+    message_body: messageBody,
+    sid: whatsappResult.sid,
+    details: { contactName: secondary.name, error: whatsappResult.error },
+  });
+
   await recordAuditEvent({
     alert_id: alertId,
     patient_id: patientId,
@@ -477,6 +529,7 @@ async function executeStep2(
       secondaryPhone: secondary.phone,
       smsStatus: smsResult.status,
       callStatus: callResult.status,
+      whatsappStatus: whatsappResult.status,
     },
   });
 

@@ -43,6 +43,7 @@ import {
   type AuthUser,
 } from "./auth.js";
 import { DEMO_PATIENTS, DEMO_MEDICATIONS_PT001, DEMO_MEDICATIONS_PT002 } from "./db/seed.js";
+import { sendTwilioSms, sendTwilioWhatsApp } from "./notifications/twilio.js";
 import type { Alert, Medication, VitalsPacket } from "./types.js";
 
 const PORT = Number(process.env.BACKEND_PORT ?? 4000);
@@ -425,6 +426,39 @@ app.get(["/audit", "/api/audit"], authenticateToken, async (req, res) => {
   const alertId = req.query.alert_id ? String(req.query.alert_id) : undefined;
   const trail = await getAuditTrail({ patient_id: patientId, alert_id: alertId });
   res.json(trail);
+});
+
+// Twilio SMS Test & Dispatch Endpoint
+app.post(["/notifications/sms", "/api/notifications/sms"], async (req, res) => {
+  const to = req.body?.to || process.env.PRIMARY_CAREGIVER_PHONE || "+918076860402";
+  const body = req.body?.body || req.body?.message || "CareConnect SMS Test: System active and monitoring.";
+
+  try {
+    const result = await sendTwilioSms(to, body);
+    res.json({ ok: true, result });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Twilio WhatsApp Test & Dispatch Endpoint
+app.post(["/notifications/whatsapp", "/api/notifications/whatsapp"], async (req, res) => {
+  const to = req.body?.to || process.env.PRIMARY_CAREGIVER_PHONE || "+918076860402";
+  const body = req.body?.body || req.body?.message || "CareConnect WhatsApp Test: System active and monitoring.";
+  const contentSid = req.body?.contentSid;
+  const contentVariables = req.body?.contentVariables;
+
+  try {
+    const result = await sendTwilioWhatsApp({
+      to,
+      body,
+      contentSid,
+      contentVariables,
+    });
+    res.json({ ok: true, result });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 // -----------------------------------------------------------------------------

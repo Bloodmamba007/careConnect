@@ -2,15 +2,29 @@ import twilio from "twilio";
 
 export interface TwilioNotificationResult {
   sid: string;
-  channel: "SMS" | "VOICE";
+  channel: "SMS" | "VOICE" | "WHATSAPP";
   to: string;
   status: "SENT" | "MOCKED" | "FAILED";
   error?: string;
 }
 
+export interface TwilioWhatsAppOptions {
+  to: string;
+  from?: string;
+  body?: string;
+  contentSid?: string;
+  contentVariables?: string | Record<string, string>;
+}
+
 export interface TwilioClientInterface {
   messages: {
-    create: (opts: { body: string; to: string; from: string }) => Promise<{ sid: string }>;
+    create: (opts: {
+      body?: string;
+      to: string;
+      from: string;
+      contentSid?: string;
+      contentVariables?: string;
+    }) => Promise<{ sid: string }>;
   };
   calls: {
     create: (opts: { twiml: string; to: string; from: string }) => Promise<{ sid: string }>;
@@ -175,3 +189,139 @@ function escapeXml(unsafe: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 }
+
+export async function sendTwilioWhatsApp(
+  optionsOrTo: string | TwilioWhatsAppOptions,
+  bodyOrVariables?: string | Record<string, string>,
+): Promise<TwilioNotificationResult> {
+  const isMock =
+    process.env.MOCK_NOTIFICATIONS === "true" ||
+    process.env.NODE_ENV === "test";
+
+  let to: string;
+  let from: string | undefined;
+  let body: string | undefined;
+  let contentSid: string | undefined;
+  let contentVariables: string | undefined;
+
+  if (typeof optionsOrTo === "string") {
+    to = optionsOrTo;
+    if (typeof bodyOrVariables === "string") {
+      body = bodyOrVariables;
+    } else if (bodyOrVariables && typeof bodyOrVariables === "object") {
+      contentVariables = JSON.stringify(bodyOrVariables);
+    }
+    contentSid = process.env.TWILIO_CONTENT_SID;
+  } else {
+    to = optionsOrTo.to;
+    body = optionsOrTo.body;
+    contentSid = optionsOrTo.contentSid || process.env.TWILIO_CONTENT_SID;
+    if (typeof optionsOrTo.contentVariables === "string") {
+      contentVariables = optionsOrTo.contentVariables;
+    } else if (optionsOrTo.contentVariables && typeof optionsOrTo.contentVariables === "object") {
+      contentVariables = JSON.stringify(optionsOrTo.contentVariables);
+    }
+    if (optionsOrTo.from) {
+      from = optionsOrTo.from;
+    }
+  }
+
+  from = from || process.env.TWILIO_WHATSAPP_FROM || "whatsapp:+14155238886";
+  if (!from.startsWith("whatsapp:")) {
+    from = `whatsapp:${from}`;
+  }
+  if (!to.startsWith("whatsapp:")) {
+    to = `whatsapp:${to}`;
+  }
+
+  if (customTwilioClient) {
+    const createOpts: any = { to, from };
+    if (contentSid) {
+      createOpts.contentSid = contentSid;
+      if (contentVariables) createOpts.contentVariables = contentVariables;
+    } else {
+      createOpts.body = body || "CareConnect WhatsApp Alert";
+    }
+    const res = await customTwilioClient.messages.create(createOpts);
+    return {
+      sid: res.sid,
+      channel: "WHATSAPP",
+      to,
+      status: "SENT",
+    };
+  }
+
+  if (isMock) {
+    const mockSid = `WA_mock_${Math.random().toString(36).slice(2, 10)}`;
+    console.log(
+      `[MOCK NOTIFICATION][WHATSAPP] -> ${to} (from: ${from}):\n${
+        contentSid ? `ContentSid: ${contentSid}, Vars: ${contentVariables}` : body
+      }`,
+    );
+    return {
+      sid: mockSid,
+      channel: "WHATSAPP",
+      to,
+      status: "MOCKED",
+    };
+  }
+
+  const client = getTwilioClient();
+  if (!client) {
+    console.warn("[Twilio WhatsApp] Twilio credentials missing. Falling back to mock.");
+    return {
+      sid: `WA_fallback_${Date.now()}`,
+      channel: "WHATSAPP",
+      to,
+      status: "MOCKED",
+    };
+  }
+
+  try {
+    const createOpts: any = { to, from };
+    if (contentSid) {
+      createOpts.contentSid = contentSid;
+      if (contentVariables) createOpts.contentVariables = contentVariables;
+    } else {
+      createOpts.body = body || "CareConnect WhatsApp Alert";
+    }
+
+    let message;
+    try {
+      message = await client.messages.create(createOpts);
+    } catch (createErr: any) {
+      if (contentSid && (createErr.message?.includes("Content") || createErr.status === 404)) {
+        console.warn(
+          `[Twilio WhatsApp] Content template '${contentSid}' not found. Falling back to direct text body.`,
+        );
+        const fallbackOpts: any = {
+          to,
+          from,
+          body: body || "CareConnect Alert: Clinical status update for patient monitoring.",
+        };
+        message = await client.messages.create(fallbackOpts);
+      } else {
+        throw createErr;
+      }
+    }
+
+    console.log(`[Twilio WhatsApp] Successfully sent WhatsApp message SID: ${message.sid} to ${to}`);
+    return {
+      sid: message.sid,
+      channel: "WHATSAPP",
+      to,
+      status: "SENT",
+    };
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error(`[Twilio WhatsApp] Failed to send WhatsApp message to ${to}:`, errMsg);
+    return {
+      sid: "",
+      channel: "WHATSAPP",
+      to,
+      status: "FAILED",
+      error: errMsg,
+    };
+  }
+}
+

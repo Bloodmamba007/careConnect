@@ -226,31 +226,33 @@ test("Timing: Step 1 sends SMS + Voice to primary caregiver, Step 2 notifies sec
 
   // After Step 1 delay (~50ms total): primary caregiver notified
   await new Promise((resolve) => setTimeout(resolve, 45));
-  assert.equal(mockTwilio.messages.length, 1, "Step 1 should send 1 SMS");
+  const smsMessages = mockTwilio.messages.filter((m) => !m.to.startsWith("whatsapp:"));
+  assert.equal(smsMessages.length, 1, "Step 1 should send 1 SMS");
   assert.equal(mockTwilio.calls.length, 1, "Step 1 should place 1 Voice call");
-  assert.equal(mockTwilio.messages[0].to, primaryPhone);
+  assert.equal(smsMessages[0].to, primaryPhone);
   assert.equal(mockTwilio.calls[0].to, primaryPhone);
-  assert.ok(mockTwilio.messages[0].body.includes("Alice Walker"));
+  assert.ok(smsMessages[0].body.includes("Alice Walker"));
   assert.ok(mockTwilio.calls[0].twiml.includes("Alice Walker"));
 
   // After Step 2 delay (another 50ms): secondary caregiver notified
   await new Promise((resolve) => setTimeout(resolve, 55));
-  assert.equal(mockTwilio.messages.length, 2, "Step 2 should send second SMS");
+  const smsMessagesStep2 = mockTwilio.messages.filter((m) => !m.to.startsWith("whatsapp:"));
+  assert.equal(smsMessagesStep2.length, 2, "Step 2 should send second SMS");
   assert.equal(mockTwilio.calls.length, 2, "Step 2 should place second Voice call");
-  assert.equal(mockTwilio.messages[1].to, secondaryPhone);
+  assert.equal(smsMessagesStep2[1].to, secondaryPhone);
   assert.equal(mockTwilio.calls[1].to, secondaryPhone);
 
   // Verify full audit trail
   const audit = await getAuditTrail({ alert_id: alert.event_id });
   const step1Sms = audit.find((e) => e.action === "STEP_1_SMS");
   const step1Voice = audit.find((e) => e.action === "STEP_1_VOICE");
-  const step1Fcm = audit.find((e) => e.action === "STEP_1_FCM");
+  const step1Fcm = audit.find((e) => e.action === "STEP_1_FCM" || e.action === "STEP_1_Supabase");
   const step2Sms = audit.find((e) => e.action === "STEP_2_SMS");
   const step2Voice = audit.find((e) => e.action === "STEP_2_VOICE");
 
   assert.ok(step1Sms, "Must log Step 1 SMS in audit trail");
   assert.ok(step1Voice, "Must log Step 1 Voice in audit trail");
-  assert.ok(step1Fcm, "Must log Step 1 FCM in audit trail");
+  assert.ok(step1Fcm, "Must log Step 1 FCM / Supabase in audit trail");
   assert.ok(step2Sms, "Must log Step 2 SMS in audit trail");
   assert.ok(step2Voice, "Must log Step 2 Voice in audit trail");
 });
@@ -275,7 +277,8 @@ test("Acknowledgment between Step 1 and Step 2 cancels Step 2 secondary notifica
 
   // Wait for Step 1 to fire (40ms)
   await new Promise((resolve) => setTimeout(resolve, 40));
-  assert.equal(mockTwilio.messages.length, 1);
+  const smsMessagesAck = mockTwilio.messages.filter((m) => !m.to.startsWith("whatsapp:"));
+  assert.equal(smsMessagesAck.length, 1);
   assert.equal(mockTwilio.calls.length, 1);
 
   // Acknowledge before Step 2 fires
@@ -289,7 +292,8 @@ test("Acknowledgment between Step 1 and Step 2 cancels Step 2 secondary notifica
   await new Promise((resolve) => setTimeout(resolve, 60));
 
   // Secondary contact must NOT have received any notification
-  assert.equal(mockTwilio.messages.length, 1, "Secondary contact must not receive SMS");
+  const smsMessagesAfterAck = mockTwilio.messages.filter((m) => !m.to.startsWith("whatsapp:"));
+  assert.equal(smsMessagesAfterAck.length, 1, "Secondary contact must not receive SMS");
   assert.equal(mockTwilio.calls.length, 1, "Secondary contact must not receive Voice call");
 });
 

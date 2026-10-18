@@ -136,8 +136,8 @@ export async function storeSupabaseNotification(
       throw new Error("Supabase client not initialized");
     }
 
-    const { data, error } = await supabaseClient
-      .from("notifications")
+    const { data, error } = await (supabaseClient
+      .from("notifications") as any)
       .insert({
         patient_id: patientId,
         title: payload.title,
@@ -152,7 +152,7 @@ export async function storeSupabaseNotification(
     if (error) throw error;
 
     return {
-      messageId: data.id,
+      messageId: (data as any)?.id ?? `supabase_${Date.now()}`,
       recipient: `patient_${patientId}`,
       status: "SENT",
     };

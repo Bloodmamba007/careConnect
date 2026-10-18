@@ -89,6 +89,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_access_action ON audit_access_logs(action);
 CREATE INDEX IF NOT EXISTS idx_audit_access_created_at ON audit_access_logs(created_at DESC);
 
 -- 6. Comprehensive Unified Audit Trail View
+DROP VIEW IF EXISTS audit_trail CASCADE;
 CREATE OR REPLACE VIEW audit_trail AS
 SELECT 
     'EVENT' AS entry_type,

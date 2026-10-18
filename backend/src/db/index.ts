@@ -215,7 +215,7 @@ export async function recordNotification(notif: {
   alert_id: string;
   patient_id: string;
   step: number;
-  channel: "SMS" | "VOICE" | "FCM";
+  channel: "SMS" | "VOICE" | "FCM" | "Supabase" | "WHATSAPP" | string;
   recipient: string;
   status: "SENT" | "MOCKED" | "FAILED" | "STUBBED";
   message_body?: string;

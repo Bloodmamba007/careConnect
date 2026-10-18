@@ -21,6 +21,16 @@ CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created
 -- Enable Row Level Security (RLS)
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'service_role') THEN
+    CREATE ROLE service_role;
+  END IF;
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'authenticated') THEN
+    CREATE ROLE authenticated;
+  END IF;
+END $$;
+
 -- Policy: Service role can do anything
 CREATE POLICY "Service role full access" ON notifications
   FOR ALL
