@@ -40,13 +40,15 @@ class ParseRequest(BaseModel):
 class PrescriptionParseResponse(BaseModel):
     prescription_id: str
     patient_id: Optional[str] = None
-    status: str
-    overall_confidence: float
-    ocr_confidence: float
-    llm_confidence: float
-    match_confidence: float
-    medications: List[Medication]
-    cropped_image_base64: str
+    status: str  # auto_approved | needs_review | retake_needed | approved
+    overall_confidence: float = 0.0
+    ocr_confidence: float = 0.0
+    llm_confidence: float = 0.0
+    match_confidence: float = 0.0
+    medications: List[Medication] = []
+    warnings: List[str] = []
+    tip: Optional[str] = None
+    cropped_image_base64: str = ""
     gate_reasons: List[str] = []
     retention_mode: Optional[str] = "delete"
 

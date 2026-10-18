@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { io } from "socket.io-client";
+import { io, type Socket } from "socket.io-client";
 import { AlertsFeed } from "./components/AlertsFeed";
 import { DemoController } from "./components/DemoController";
 import { EmergencyModal } from "./components/EmergencyModal";
-import { ActivityIcon, AlertTriangleIcon, CheckCircleIcon, PillIcon, ShieldAlertIcon, XIcon } from "./components/Icons";
+import { ActivityIcon, AlertTriangleIcon, CheckCircleIcon, FileTextIcon, PillIcon, ShieldAlertIcon, XIcon } from "./components/Icons";
 import { MedicationsView } from "./components/MedicationsView";
 import { Navbar } from "./components/Navbar";
 import { PatientHeader } from "./components/PatientHeader";
+import { PharmacistReview } from "./components/PharmacistReview";
 import { TelemetryChart } from "./components/TelemetryChart";
 import { VitalCard } from "./components/VitalCard";
 import type { Alert, AlertSeverity, ChartPoint, DemoScenario, Medication, Patient, VitalsPacket } from "./types";
@@ -25,9 +26,10 @@ export default function App() {
   const [vitalsHistory, setVitalsHistory] = useState<ChartPoint[]>(() => generateInitialHistory(PATIENTS[0].id));
   const [alerts, setAlerts] = useState<Alert[]>(INITIAL_ALERTS);
   const [medications, setMedications] = useState<Medication[]>(INITIAL_MEDICATIONS);
+  const [userRole, setUserRole] = useState<string>("pharmacist");
 
   // Navigation & Control States
-  const [activeTab, setActiveTab] = useState<"telemetry" | "alerts" | "medications">("telemetry");
+  const [activeTab, setActiveTab] = useState<"telemetry" | "alerts" | "medications" | "pharmacist">("telemetry");
   const [demoStudioOpen, setDemoStudioOpen] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
   const [isStreamingPaused, setIsStreamingPaused] = useState(false);
@@ -41,7 +43,7 @@ export default function App() {
     id: string;
     title: string;
     message: string;
-    severity?: AlertSeverity | "info";
+    severity?: AlertSeverity | "info" | "critical";
   } | null>(null);
 
   const socketRef = useRef<Socket | null>(null);
@@ -50,7 +52,7 @@ export default function App() {
   const triggerToast = (
     title: string,
     message: string,
-    severity: AlertSeverity | "info" = "info",
+    severity: AlertSeverity | "info" | "critical" = "info",
   ) => {
     const id = String(Date.now());
     setToast({ id, title, message, severity });
@@ -522,6 +524,22 @@ export default function App() {
                 {medications.length}
               </span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab("pharmacist")}
+              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-bold transition-all ${
+                activeTab === "pharmacist"
+                  ? "bg-indigo-500/20 text-indigo-300 shadow-sm ring-1 ring-indigo-500/40"
+                  : "text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <FileTextIcon className="h-3.5 w-3.5" />
+              <span>Pharmacist Review</span>
+              <span className="rounded bg-indigo-500/30 px-1.5 py-0.2 text-[10px] text-indigo-200">
+                Queue
+              </span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -629,7 +647,20 @@ export default function App() {
               patient={activePatient}
               medications={medications}
               onAddMedication={handleAddMedication}
+              onUpdateAllMedications={(newMeds) => {
+                setMedications(newMeds);
+                fetch(`/medications/${activePatient.id}`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(newMeds),
+                }).catch(() => undefined);
+                triggerToast("Medication Regimen Updated", `Updated ${newMeds.length} active prescriptions`, "info");
+              }}
             />
+          )}
+
+          {activeTab === "pharmacist" && (
+            <PharmacistReview userRole={userRole} />
           )}
         </div>
       </main>

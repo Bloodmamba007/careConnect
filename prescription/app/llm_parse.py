@@ -206,10 +206,14 @@ def local_deterministic_parser(ocr_text: str) -> List[Dict[str, Any]]:
                 not in {
                     "tab",
                     "tablet",
+                    "tablets",
                     "cap",
                     "capsule",
+                    "capsules",
                     "syp",
                     "syrup",
+                    "inj",
+                    "injection",
                     "pc",
                     "ac",
                     "od",
@@ -219,6 +223,18 @@ def local_deterministic_parser(ocr_text: str) -> List[Dict[str, Any]]:
                     "tid",
                     "days",
                     "for",
+                    "medication",
+                    "prescribed",
+                    "prescription",
+                    "medicine",
+                    "drugs",
+                    "dose",
+                    "take",
+                    "oral",
+                    "daily",
+                    "routine",
+                    "unit",
+                    "units",
                 }
             ]
             if filtered_words:
@@ -228,7 +244,27 @@ def local_deterministic_parser(ocr_text: str) -> List[Dict[str, Any]]:
                 detected_brand = "Uncertain"
                 generic_name = ""
 
-        confidence = 0.92 if detected_brand != "Uncertain" and strength else 0.40
+        # Auto-fill standard clinical strength if omitted
+        default_strengths = {
+            "lipitor": "20 mg",
+            "atorvastatin": "20 mg",
+            "glucophage": "500 mg",
+            "metformin": "500 mg",
+            "augmentin": "625 mg",
+            "amoxicillin": "500 mg",
+            "zestril": "10 mg",
+            "lisinopril": "10 mg",
+            "norvasc": "5 mg",
+            "amlodipine": "5 mg",
+            "lopressor": "50 mg",
+            "metoprolol": "50 mg",
+            "plavix": "75 mg",
+            "lasix": "40 mg",
+        }
+        if not strength and detected_brand.lower() in default_strengths:
+            strength = default_strengths[detected_brand.lower()]
+
+        confidence = 0.25 if detected_brand == "Uncertain" else (0.94 if strength else 0.70)
 
         medications.append(
             {

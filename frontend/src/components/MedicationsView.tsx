@@ -1,18 +1,21 @@
 import React, { useState } from "react";
 import type { Medication, Patient } from "../types";
 import { SAMPLE_PRESCRIPTIONS } from "../utils/mockData";
-import { CheckIcon, FileTextIcon, PillIcon, SparklesIcon } from "./Icons";
+import { AlertTriangleIcon, CheckCircleIcon, CheckIcon, FileTextIcon, PillIcon, ShieldAlertIcon, SparklesIcon } from "./Icons";
+import { PrescriptionUpload } from "./PrescriptionUpload";
 
 interface MedicationsViewProps {
   patient: Patient;
   medications: Medication[];
   onAddMedication: (med: Medication) => void;
+  onUpdateAllMedications?: (meds: Medication[]) => void;
 }
 
 export function MedicationsView({
   patient,
   medications,
   onAddMedication,
+  onUpdateAllMedications,
 }: MedicationsViewProps) {
   const [inputText, setInputText] = useState(SAMPLE_PRESCRIPTIONS[0].text);
   const [isParsing, setIsParsing] = useState(false);
@@ -116,14 +119,117 @@ export function MedicationsView({
     }
   };
 
+  const [safetyResult, setSafetyResult] = useState<any>(null);
+
   const handleCommitParsed = () => {
     if (!parsedResult) return;
     onAddMedication(parsedResult);
     setParsedResult(null);
   };
 
+  const handleMedicationsConfirmed = (newMeds: Medication[], ddiResult?: any) => {
+    if (onUpdateAllMedications) {
+      onUpdateAllMedications(newMeds);
+    } else {
+      for (const m of newMeds) {
+        onAddMedication(m);
+      }
+    }
+    if (ddiResult) {
+      setSafetyResult(ddiResult);
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Prescription Upload & Ingestion Component */}
+      <PrescriptionUpload
+        patientId={patient.id}
+        onMedicationsConfirmed={handleMedicationsConfirmed}
+      />
+
+      {/* Resulting Medication Safety Card from DDI Engine */}
+      {safetyResult && (
+        <div
+          className={`rounded-2xl border p-5 shadow-xl backdrop-blur-md ${
+            safetyResult.critical_interactions && safetyResult.critical_interactions.length > 0
+              ? "border-rose-500/50 bg-rose-500/10"
+              : "border-emerald-500/40 bg-emerald-500/10"
+          }`}
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div
+                className={`flex h-9 w-9 items-center justify-center rounded-xl ring-1 ${
+                  safetyResult.critical_interactions && safetyResult.critical_interactions.length > 0
+                    ? "bg-rose-500/20 text-rose-300 ring-rose-500/40"
+                    : "bg-emerald-500/20 text-emerald-300 ring-emerald-500/40"
+                }`}
+              >
+                {safetyResult.critical_interactions && safetyResult.critical_interactions.length > 0 ? (
+                  <ShieldAlertIcon className="h-5 w-5" />
+                ) : (
+                  <CheckCircleIcon className="h-5 w-5" />
+                )}
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white tracking-wide">
+                  Medication Safety & Interaction Analysis
+                </h3>
+                <p className="text-xs text-slate-300">
+                  {safetyResult.critical_interactions && safetyResult.critical_interactions.length > 0
+                    ? `CRITICAL Interaction Alert: ${safetyResult.critical_interactions.length} severe drug interaction(s) detected!`
+                    : "All verified drug pairs evaluated. No critical interactions found."}
+                </p>
+              </div>
+            </div>
+
+            <span className="text-[10px] text-slate-400 italic">
+              {safetyResult.disclaimer || "Decision support only. Consult a pharmacist or doctor."}
+            </span>
+          </div>
+
+          {/* Critical Warnings */}
+          {safetyResult.critical_interactions && safetyResult.critical_interactions.length > 0 && (
+            <div className="mt-4 space-y-2.5">
+              {safetyResult.critical_interactions.map((inter: any, idx: number) => (
+                <div
+                  key={idx}
+                  className="rounded-xl border border-rose-500/40 bg-slate-950/80 p-3 text-xs space-y-1"
+                >
+                  <div className="flex items-center justify-between font-semibold text-rose-300">
+                    <span>
+                      ⚠️ {inter.drug_a.toUpperCase()} + {inter.drug_b.toUpperCase()}
+                    </span>
+                    <span className="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] text-rose-200">
+                      CRITICAL
+                    </span>
+                  </div>
+                  <p className="text-slate-200">{inter.plain_language_warning}</p>
+                  <div className="text-[11px] text-slate-400">
+                    <span className="font-medium text-slate-300">Clinical Mechanism:</span>{" "}
+                    {inter.mechanism}
+                  </div>
+                  {inter.affected_vitals && inter.affected_vitals.length > 0 && (
+                    <div className="text-[11px] text-amber-300">
+                      Vitals at risk: {inter.affected_vitals.join(", ")}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Unverified Drugs */}
+          {safetyResult.unverified_medications && safetyResult.unverified_medications.length > 0 && (
+            <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-200">
+              <span className="font-semibold">Unverified Medication - Manual Review Required: </span>
+              {safetyResult.unverified_medications.join(", ")}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Active Medications Grid */}
       <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-4 sm:p-5 backdrop-blur-md">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-800/70 pb-3.5">

@@ -551,6 +551,86 @@ app.post(["/medications/:patient_id", "/api/medications/:patient_id"], authentic
 });
 
 // -----------------------------------------------------------------------------
+// Prescription Service Proxy Routes (Thin proxy to FastAPI on port 8000)
+// -----------------------------------------------------------------------------
+const PRESCRIPTION_URL = process.env.PRESCRIPTION_SERVICE_URL || "http://127.0.0.1:8000";
+
+app.post(["/api/prescriptions/parse", "/prescriptions/parse"], async (req, res) => {
+  try {
+    const targetUrl = `${PRESCRIPTION_URL}/prescriptions/parse`;
+    // Forward the request to prescription service directly via fetch
+    // Preserve content-type for multipart/form-data
+    const contentType = req.headers["content-type"] || "";
+    
+    // Read raw body chunks from stream
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+    }
+    const bodyBuffer = Buffer.concat(chunks);
+
+    const forwardRes = await fetch(targetUrl, {
+      method: "POST",
+      headers: {
+        "content-type": contentType,
+      },
+      body: bodyBuffer,
+    });
+
+    const data = await forwardRes.json().catch(() => ({}));
+    res.status(forwardRes.status).json(data);
+  } catch (err: any) {
+    console.error("[Prescription Proxy Error]:", err?.message);
+    res.status(502).json({
+      error: "Prescription service unavailable",
+      detail: err?.message,
+      disclaimer: DISCLAIMER,
+    });
+  }
+});
+
+app.get(["/api/prescriptions/samples/:filename", "/prescriptions/samples/:filename"], (req, res) => {
+  const filename = req.params.filename;
+  const safeFilename = path.basename(filename);
+  const samplePath = path.resolve(__dirname, "../../prescription/samples", safeFilename);
+  if (fs.existsSync(samplePath)) {
+    res.sendFile(samplePath);
+  } else {
+    res.status(404).json({ error: "Sample file not found" });
+  }
+});
+
+app.get(["/api/prescriptions/review-queue", "/prescriptions/review-queue"], authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const targetUrl = `${PRESCRIPTION_URL}/prescriptions/review-queue`;
+    const forwardRes = await fetch(targetUrl, {
+      headers: { "accept": "application/json" },
+    });
+    const data = await forwardRes.json().catch(() => []);
+    res.status(forwardRes.status).json(data);
+  } catch (err: any) {
+    res.status(502).json({ error: "Prescription service unavailable", detail: err?.message });
+  }
+});
+
+app.post(["/api/prescriptions/:id/approve", "/prescriptions/:id/approve"], authenticateToken, async (req: AuthenticatedRequest, res) => {
+  try {
+    const targetUrl = `${PRESCRIPTION_URL}/prescriptions/${encodeURIComponent(req.params.id)}/approve`;
+    const forwardRes = await fetch(targetUrl, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(req.body ?? {}),
+    });
+    const data = await forwardRes.json().catch(() => ({}));
+    res.status(forwardRes.status).json(data);
+  } catch (err: any) {
+    res.status(502).json({ error: "Prescription service unavailable", detail: err?.message });
+  }
+});
+
+// -----------------------------------------------------------------------------
 // Simulator Scenarios (Demo Panel)
 // -----------------------------------------------------------------------------
 const scenarioHandler = async (req: express.Request, res: express.Response) => {
